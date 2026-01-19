@@ -1,0 +1,6 @@
+# Railway Configuration Hints
+# This file helps Railway auto-detect the correct settings
+
+# Root directory is /backend
+# Build command: pip install -r requirements.txt
+# Start command: uvicorn main:app --host 0.0.0.0 --port $PORT
