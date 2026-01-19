@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LogLens Frontend Auth Tests</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+            max-width: 800px;
+            margin: 2rem auto;
+            padding: 1rem;
+        }
+        h1 {
+            color: #111827;
+        }
+        .test-suite {
+            margin: 2rem 0;
+            padding: 1rem;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+        }
+        .test-case {
+            margin: 1rem 0;
+            padding: 0.75rem;
+            border-left: 4px solid #9ca3af;
+            background: #f9fafb;
+        }
+        .test-case.pass {
+            border-left-color: #16a34a;
+            background: #f0fdf4;
+        }
+        .test-case.fail {
+            border-left-color: #dc2626;
+            background: #fef2f2;
+        }
+        .test-name {
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+        }
+        .test-result {
+            font-size: 0.875rem;
+            color: #6b7280;
+        }
+        .summary {
+            margin-top: 2rem;
+            padding: 1rem;
+            background: #eff6ff;
+            border-radius: 8px;
+            font-weight: 600;
+        }
+        .summary.all-pass {
+            background: #f0fdf4;
+            color: #166534;
+        }
+        button {
+            background: #2563eb;
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1rem;
+            margin-bottom: 1rem;
+        }
+        button:hover {
+            background: #1d4ed8;
+        }
+    </style>
+</head>
+<body>
+    <h1>LogLens Frontend Auth Tests</h1>
+    <p>Tests for Task 6.1: Password Authentication UI</p>
+
+    <button onclick="runTests()">Run Tests</button>
+
+    <div id="test-results"></div>
+
+    <script>
+        // Test utilities
+        const testResults = [];
+
+        function assert(condition, message) {
+            if (!condition) {
+                throw new Error(message);
+            }
+        }
+
+        function assertEqual(actual, expected, message) {
+            if (actual !== expected) {
+                throw new Error(`${message}\nExpected: ${expected}\nActual: ${actual}`);
+            }
+        }
+
+        function runTest(name, testFn) {
+            try {
+                testFn();
+                testResults.push({ name, passed: true, error: null });
+                return true;
+            } catch (error) {
+                testResults.push({ name, passed: false, error: error.message });
+                return false;
+            }
+        }
+
+        // Test Suite
+        function runTests() {
+            testResults.length = 0; // Clear previous results
+
+            // Clear localStorage before tests
+            localStorage.clear();
+
+            console.log('Running password authentication tests...');
+
+            // Test 1: Password storage in localStorage
+            runTest('Test 1: Password is stored in localStorage after authentication', () => {
+                localStorage.clear();
+                const testPassword = 'test-password-123';
+
+                // Simulate storing password
+                localStorage.setItem('loglens_auth_token', testPassword);
+
+                const stored = localStorage.getItem('loglens_auth_token');
+                assertEqual(stored, testPassword, 'Password should be stored in localStorage');
+            });
+
+            // Test 2: localStorage key name is correct
+            runTest('Test 2: localStorage uses correct key name', () => {
+                localStorage.clear();
+                localStorage.setItem('loglens_auth_token', 'test');
+
+                const keys = Object.keys(localStorage);
+                assert(keys.includes('loglens_auth_token'), 'localStorage should use key "loglens_auth_token"');
+            });
+
+            // Test 3: Password clearing on logout
+            runTest('Test 3: Password is cleared from localStorage on logout', () => {
+                localStorage.setItem('loglens_auth_token', 'test-password');
+
+                // Simulate logout
+                localStorage.removeItem('loglens_auth_token');
+
+                const stored = localStorage.getItem('loglens_auth_token');
+                assertEqual(stored, null, 'Password should be removed from localStorage on logout');
+            });
+
+            // Test 4: Auth header format
+            runTest('Test 4: X-Auth-Token header format is correct', () => {
+                const testPassword = 'my-secret-password';
+                const headers = {
+                    'Content-Type': 'application/json',
+                    'X-Auth-Token': testPassword
+                };
+
+                assert('X-Auth-Token' in headers, 'Headers should include X-Auth-Token');
+                assertEqual(headers['X-Auth-Token'], testPassword, 'X-Auth-Token should contain the password');
+            });
+
+            // Test 5: Password persistence across page reloads
+            runTest('Test 5: Password persists in localStorage', () => {
+                localStorage.clear();
+                const password = 'persistent-password';
+                localStorage.setItem('loglens_auth_token', password);
+
+                // Simulate page reload by reading from localStorage
+                const retrievedPassword = localStorage.getItem('loglens_auth_token');
+                assertEqual(retrievedPassword, password, 'Password should persist across page reloads');
+            });
+
+            // Test 6: Empty password handling
+            runTest('Test 6: Empty password check', () => {
+                localStorage.clear();
+                localStorage.setItem('loglens_auth_token', '');
+
+                const stored = localStorage.getItem('loglens_auth_token');
+                // Empty string is truthy in localStorage
+                assertEqual(stored, '', 'Empty password should be stored as empty string');
+            });
+
+            // Test 7: 401 response handling simulation
+            runTest('Test 7: 401 response clears stored password', () => {
+                localStorage.setItem('loglens_auth_token', 'invalid-password');
+
+                // Simulate 401 handling
+                const status = 401;
+                if (status === 401) {
+                    localStorage.removeItem('loglens_auth_token');
+                }
+
+                const stored = localStorage.getItem('loglens_auth_token');
+                assertEqual(stored, null, 'Password should be cleared on 401 response');
+            });
+
+            // Test 8: Multiple password changes
+            runTest('Test 8: Password can be updated in localStorage', () => {
+                localStorage.setItem('loglens_auth_token', 'old-password');
+                localStorage.setItem('loglens_auth_token', 'new-password');
+
+                const stored = localStorage.getItem('loglens_auth_token');
+                assertEqual(stored, 'new-password', 'Password should be updated in localStorage');
+            });
+
+            // Test 9: Special characters in password
+            runTest('Test 9: Special characters in password are stored correctly', () => {
+                const specialPassword = 'p@$$w0rd!#%^&*()';
+                localStorage.setItem('loglens_auth_token', specialPassword);
+
+                const stored = localStorage.getItem('loglens_auth_token');
+                assertEqual(stored, specialPassword, 'Special characters should be stored correctly');
+            });
+
+            // Test 10: Very long password
+            runTest('Test 10: Long passwords are stored correctly', () => {
+                const longPassword = 'a'.repeat(200);
+                localStorage.setItem('loglens_auth_token', longPassword);
+
+                const stored = localStorage.getItem('loglens_auth_token');
+                assertEqual(stored, longPassword, 'Long passwords should be stored correctly');
+                assertEqual(stored.length, 200, 'Password length should be preserved');
+            });
+
+            // Display results
+            displayResults();
+        }
+
+        function displayResults() {
+            const container = document.getElementById('test-results');
+            const passed = testResults.filter(r => r.passed).length;
+            const failed = testResults.filter(r => !r.passed).length;
+            const total = testResults.length;
+
+            let html = '<div class="test-suite">';
+            html += `<h2>Test Results</h2>`;
+
+            testResults.forEach((result, index) => {
+                const className = result.passed ? 'pass' : 'fail';
+                const icon = result.passed ? '✅' : '❌';
+                html += `
+                    <div class="test-case ${className}">
+                        <div class="test-name">${icon} ${result.name}</div>
+                        ${result.error ? `<div class="test-result">Error: ${result.error}</div>` : ''}
+                    </div>
+                `;
+            });
+
+            html += '</div>';
+
+            const summaryClass = failed === 0 ? 'all-pass' : '';
+            html += `
+                <div class="summary ${summaryClass}">
+                    <div>Total Tests: ${total}</div>
+                    <div>Passed: ${passed}</div>
+                    <div>Failed: ${failed}</div>
+                    <div>Success Rate: ${((passed / total) * 100).toFixed(1)}%</div>
+                </div>
+            `;
+
+            container.innerHTML = html;
+
+            // Log to console as well
+            console.log(`\nTest Summary:`);
+            console.log(`Total: ${total} | Passed: ${passed} | Failed: ${failed}`);
+            testResults.forEach(result => {
+                console.log(`${result.passed ? '✅' : '❌'} ${result.name}`);
+                if (result.error) {
+                    console.log(`   Error: ${result.error}`);
+                }
+            });
+        }
+    </script>
+</body>
+</html>

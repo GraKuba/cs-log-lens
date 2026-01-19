@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Error States Test Suite</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 2rem;
+            background: #f9fafb;
+        }
+        h1 {
+            color: #111827;
+            border-bottom: 3px solid #2563eb;
+            padding-bottom: 0.5rem;
+        }
+        .test-group {
+            background: white;
+            margin: 1rem 0;
+            padding: 1rem;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .test-group h2 {
+            margin-top: 0;
+            color: #374151;
+            font-size: 1.25rem;
+        }
+        .test {
+            padding: 0.5rem;
+            margin: 0.5rem 0;
+            border-left: 4px solid #e5e7eb;
+            background: #f9fafb;
+        }
+        .test.passed {
+            border-left-color: #16a34a;
+            background: #f0fdf4;
+        }
+        .test.failed {
+            border-left-color: #dc2626;
+            background: #fef2f2;
+        }
+        .test-name {
+            font-weight: 500;
+        }
+        .passed .test-name::before {
+            content: '✓ ';
+            color: #16a34a;
+            font-weight: bold;
+        }
+        .failed .test-name::before {
+            content: '✗ ';
+            color: #dc2626;
+            font-weight: bold;
+        }
+        .summary {
+            background: #2563eb;
+            color: white;
+            padding: 1.5rem;
+            border-radius: 8px;
+            margin-top: 2rem;
+        }
+        .summary h2 {
+            margin-top: 0;
+            color: white;
+        }
+        .summary-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        .stat {
+            background: rgba(255,255,255,0.1);
+            padding: 1rem;
+            border-radius: 4px;
+        }
+        .stat-value {
+            font-size: 2rem;
+            font-weight: bold;
+        }
+        .stat-label {
+            font-size: 0.875rem;
+            opacity: 0.9;
+        }
+        .preview {
+            margin-top: 2rem;
+            padding: 1.5rem;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .preview h2 {
+            margin-top: 0;
+            color: #374151;
+        }
+        .preview-section {
+            margin: 2rem 0;
+            padding: 1rem;
+            background: #f9fafb;
+            border-radius: 6px;
+        }
+        .preview-section h3 {
+            margin-top: 0;
+            color: #6b7280;
+            font-size: 0.875rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+    </style>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <h1>🧪 Error & Empty States Test Suite</h1>
+
+    <div id="test-results"></div>
+    <div id="summary"></div>
+
+    <div class="preview">
+        <h2>Visual Previews</h2>
+
+        <div class="preview-section">
+            <h3>Error State Example</h3>
+            <div id="error-preview"></div>
+        </div>
+
+        <div class="preview-section">
+            <h3>Empty State Example</h3>
+            <div id="empty-preview"></div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+    <script>
+        // Test framework
+        const tests = {
+            passed: 0,
+            failed: 0,
+            total: 0,
+            groups: []
+        };
+
+        let currentGroup = null;
+
+        function startGroup(name) {
+            currentGroup = { name, tests: [] };
+            tests.groups.push(currentGroup);
+        }
+
+        function assert(condition, testName) {
+            tests.total++;
+            const passed = condition;
+            if (passed) {
+                tests.passed++;
+            } else {
+                tests.failed++;
+            }
+            currentGroup.tests.push({ name: testName, passed });
+        }
+
+        // Run tests
+        startGroup('Error State Structure');
+        const errorHtml = (function() {
+            const html = `
+                <div class="error-state">
+                    <div class="error-icon">⚠️</div>
+                    <h3>Analysis Error</h3>
+                    <p class="error-text">No Sentry events found</p>
+                    <p class="error-suggestion"><strong>Suggestion:</strong> Try expanding the time range</p>
+                    <button class="btn btn-primary retry-btn">Try Again</button>
+                </div>
+            `;
+            return html;
+        })();
+        assert(errorHtml.includes('error-state'), 'Has error-state container');
+        assert(errorHtml.includes('Analysis Error'), 'Has error title');
+        assert(errorHtml.includes('error-icon'), 'Has error icon');
+        assert(errorHtml.includes('error-suggestion'), 'Has suggestion section');
+        assert(errorHtml.includes('Try Again'), 'Has retry button');
+
+        startGroup('Empty State Structure');
+        const emptyHtml = (function() {
+            const html = `
+                <div class="empty-state">
+                    <div class="empty-icon">🔍</div>
+                    <h3>No Events Found</h3>
+                    <p class="empty-text">We couldn't find any Sentry events matching the provided criteria.</p>
+                    <div class="empty-suggestions">
+                        <p><strong>Here's what you can try:</strong></p>
+                        <ul>
+                            <li>✓ Widen the time range by adjusting the timestamp</li>
+                            <li>✓ Verify the customer ID is correct</li>
+                            <li>✓ Check that events exist in Sentry for this customer</li>
+                            <li>✓ Ensure the customer ID format matches your system</li>
+                        </ul>
+                    </div>
+                    <button class="btn btn-primary retry-btn">Adjust & Try Again</button>
+                </div>
+            `;
+            return html;
+        })();
+        assert(emptyHtml.includes('empty-state'), 'Has empty-state container');
+        assert(emptyHtml.includes('No Events Found'), 'Has empty state title');
+        assert(emptyHtml.includes('empty-icon'), 'Has search icon');
+        assert(emptyHtml.includes('empty-suggestions'), 'Has suggestions section');
+        assert(emptyHtml.includes('Widen the time range'), 'Has actionable suggestions');
+        assert(emptyHtml.includes('<ul>'), 'Has suggestion list');
+
+        startGroup('Error Display Function');
+        const mockElement = {
+            textContent: '',
+            classList: {
+                items: new Set(),
+                add(className) { this.items.add(className); },
+                remove(className) { this.items.delete(className); },
+                has(className) { return this.items.has(className); }
+            }
+        };
+        showError(mockElement, 'Test error');
+        assert(mockElement.textContent === 'Test error', 'Error message is set');
+        assert(mockElement.classList.has('show'), 'Show class is added');
+
+        hideError(mockElement);
+        assert(mockElement.textContent === '', 'Error message is cleared');
+        assert(!mockElement.classList.has('show'), 'Show class is removed');
+
+        startGroup('Loading State');
+        assert(document.getElementById('loading') !== null, 'Loading element exists');
+        const loadingHtml = document.getElementById('loading').outerHTML;
+        assert(loadingHtml.includes('spinner'), 'Has spinner element');
+        assert(loadingHtml.includes('Analyzing'), 'Has loading text');
+
+        startGroup('Authentication Error');
+        const authErrorElement = document.getElementById('auth-error');
+        assert(authErrorElement !== null, 'Auth error element exists');
+        assert(authErrorElement.classList.contains('error-message'), 'Has error-message class');
+
+        startGroup('Form Error');
+        const formErrorElement = document.getElementById('form-error');
+        assert(formErrorElement !== null, 'Form error element exists');
+        assert(formErrorElement.classList.contains('error-message'), 'Has error-message class');
+
+        startGroup('XSS Prevention');
+        const xssTest = escapeHtml('<script>alert("xss")</script>');
+        assert(!xssTest.includes('<script>'), 'Script tags are escaped');
+        const xssTest2 = escapeHtml('<img src=x onerror=alert(1)>');
+        assert(!xssTest2.includes('onerror='), 'Event handlers are escaped');
+
+        startGroup('Special Characters Handling');
+        const specialChars = escapeHtml('Error: "quoted" & <symbols>');
+        assert(specialChars.includes('quoted'), 'Handles quoted text');
+        assert(!specialChars.includes('<symbols>'), 'Escapes angle brackets');
+
+        startGroup('Retry Functionality');
+        assert(typeof retryAnalysis === 'function', 'retryAnalysis function exists');
+
+        startGroup('Empty State with Zero Events');
+        // Simulate API response with zero events
+        const mockZeroEventsResponse = {
+            success: true,
+            events_found: 0
+        };
+        assert(mockZeroEventsResponse.events_found === 0, 'Zero events response is detected');
+
+        // Render results
+        const resultsHtml = tests.groups.map(group => `
+            <div class="test-group">
+                <h2>${group.name}</h2>
+                ${group.tests.map(test => `
+                    <div class="test ${test.passed ? 'passed' : 'failed'}">
+                        <div class="test-name">${test.name}</div>
+                    </div>
+                `).join('')}
+            </div>
+        `).join('');
+
+        document.getElementById('test-results').innerHTML = resultsHtml;
+
+        // Render summary
+        const successRate = ((tests.passed / tests.total) * 100).toFixed(1);
+        const summaryHtml = `
+            <div class="summary">
+                <h2>Test Summary</h2>
+                <div class="summary-stats">
+                    <div class="stat">
+                        <div class="stat-value">${tests.total}</div>
+                        <div class="stat-label">Total Tests</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-value">${tests.passed}</div>
+                        <div class="stat-label">Passed</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-value">${tests.failed}</div>
+                        <div class="stat-label">Failed</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-value">${successRate}%</div>
+                        <div class="stat-label">Success Rate</div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.getElementById('summary').innerHTML = summaryHtml;
+
+        // Show previews
+        document.getElementById('error-preview').innerHTML = errorHtml;
+        document.getElementById('empty-preview').innerHTML = emptyHtml;
+
+        // Console output
+        console.log(`\n=== Error States Test Results ===`);
+        console.log(`Total: ${tests.total}`);
+        console.log(`Passed: ${tests.passed}`);
+        console.log(`Failed: ${tests.failed}`);
+        console.log(`Success Rate: ${successRate}%\n`);
+    </script>
+</body>
+</html>

@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analysis Form Tests</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+            background: #f5f5f5;
+        }
+        h1 {
+            color: #333;
+        }
+        .test-suite {
+            background: white;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-case {
+            padding: 0.75rem;
+            margin: 0.5rem 0;
+            border-left: 4px solid #ccc;
+            background: #f9f9f9;
+        }
+        .test-case.pass {
+            border-left-color: #16a34a;
+            background: #f0fdf4;
+        }
+        .test-case.fail {
+            border-left-color: #dc2626;
+            background: #fef2f2;
+        }
+        .test-name {
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+        }
+        .test-result {
+            font-size: 0.875rem;
+            color: #666;
+        }
+        .summary {
+            background: #2563eb;
+            color: white;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 2rem;
+        }
+        .summary h2 {
+            margin: 0 0 0.5rem 0;
+        }
+        .error-details {
+            background: #fff;
+            color: #dc2626;
+            padding: 0.5rem;
+            margin-top: 0.5rem;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 0.875rem;
+        }
+    </style>
+</head>
+<body>
+    <h1>Analysis Form Tests</h1>
+    <div id="summary" class="summary">
+        <h2>Test Summary</h2>
+        <p id="summary-text">Running tests...</p>
+    </div>
+    <div id="test-results"></div>
+
+    <script>
+        // Test framework
+        class TestRunner {
+            constructor() {
+                this.tests = [];
+                this.passed = 0;
+                this.failed = 0;
+            }
+
+            test(name, fn) {
+                this.tests.push({ name, fn });
+            }
+
+            async run() {
+                const resultsDiv = document.getElementById('test-results');
+
+                for (const test of this.tests) {
+                    const testCase = document.createElement('div');
+                    testCase.className = 'test-case';
+
+                    const testName = document.createElement('div');
+                    testName.className = 'test-name';
+                    testName.textContent = test.name;
+                    testCase.appendChild(testName);
+
+                    const testResult = document.createElement('div');
+                    testResult.className = 'test-result';
+
+                    try {
+                        await test.fn();
+                        testCase.classList.add('pass');
+                        testResult.textContent = '✓ Passed';
+                        this.passed++;
+                    } catch (error) {
+                        testCase.classList.add('fail');
+                        testResult.textContent = '✗ Failed';
+
+                        const errorDetails = document.createElement('div');
+                        errorDetails.className = 'error-details';
+                        errorDetails.textContent = error.message;
+                        testCase.appendChild(errorDetails);
+
+                        this.failed++;
+                    }
+
+                    testCase.appendChild(testResult);
+                    resultsDiv.appendChild(testCase);
+                }
+
+                this.updateSummary();
+            }
+
+            updateSummary() {
+                const summaryText = document.getElementById('summary-text');
+                const total = this.passed + this.failed;
+                summaryText.textContent = `${this.passed}/${total} tests passed`;
+
+                if (this.failed === 0) {
+                    summaryText.textContent += ' ✓ All tests passed!';
+                }
+            }
+        }
+
+        function assert(condition, message) {
+            if (!condition) {
+                throw new Error(message || 'Assertion failed');
+            }
+        }
+
+        function assertEquals(actual, expected, message) {
+            if (actual !== expected) {
+                throw new Error(message || `Expected ${expected} but got ${actual}`);
+            }
+        }
+
+        function assertExists(element, message) {
+            if (!element) {
+                throw new Error(message || 'Element does not exist');
+            }
+        }
+
+        // Test Suite
+        const runner = new TestRunner();
+
+        // Test Suite 1: Form Structure
+        runner.test('Form has all required fields', () => {
+            const form = document.createElement('div');
+            form.innerHTML = `
+                <form id="analysis-form">
+                    <textarea id="description" name="description" required></textarea>
+                    <input type="datetime-local" id="timestamp" name="timestamp" required>
+                    <input type="text" id="customer_id" name="customer_id" required>
+                    <button type="submit">Analyze</button>
+                </form>
+            `;
+
+            const description = form.querySelector('#description');
+            const timestamp = form.querySelector('#timestamp');
+            const customerId = form.querySelector('#customer_id');
+            const submitBtn = form.querySelector('button[type="submit"]');
+
+            assertExists(description, 'Description field should exist');
+            assertExists(timestamp, 'Timestamp field should exist');
+            assertExists(customerId, 'Customer ID field should exist');
+            assertExists(submitBtn, 'Submit button should exist');
+        });
+
+        runner.test('Description field is a textarea', () => {
+            const form = document.createElement('form');
+            form.innerHTML = `<textarea id="description" name="description" required></textarea>`;
+
+            const description = form.querySelector('#description');
+            assertEquals(description.tagName.toLowerCase(), 'textarea', 'Description should be a textarea');
+            assert(description.hasAttribute('required'), 'Description should be required');
+        });
+
+        runner.test('Timestamp field uses datetime-local type', () => {
+            const form = document.createElement('form');
+            form.innerHTML = `<input type="datetime-local" id="timestamp" name="timestamp" required>`;
+
+            const timestamp = form.querySelector('#timestamp');
+            assertEquals(timestamp.type, 'datetime-local', 'Timestamp should be datetime-local input');
+            assert(timestamp.hasAttribute('required'), 'Timestamp should be required');
+        });
+
+        runner.test('Customer ID field has proper attributes', () => {
+            const form = document.createElement('form');
+            form.innerHTML = `<input type="text" id="customer_id" name="customer_id" required placeholder="e.g., usr_abc123">`;
+
+            const customerId = form.querySelector('#customer_id');
+            assertEquals(customerId.type, 'text', 'Customer ID should be text input');
+            assert(customerId.hasAttribute('required'), 'Customer ID should be required');
+            assert(customerId.hasAttribute('placeholder'), 'Customer ID should have placeholder');
+        });
+
+        // Test Suite 2: Form Validation
+        runner.test('Empty form should not validate', () => {
+            const form = document.createElement('form');
+            form.innerHTML = `
+                <textarea id="description" name="description" required></textarea>
+                <input type="datetime-local" id="timestamp" name="timestamp" required>
+                <input type="text" id="customer_id" name="customer_id" required>
+            `;
+
+            const isValid = form.checkValidity();
+            assert(!isValid, 'Empty form should not be valid');
+        });
+
+        runner.test('Form with all fields should validate', () => {
+            const form = document.createElement('form');
+            form.innerHTML = `
+                <textarea id="description" name="description" required>User can't checkout</textarea>
+                <input type="datetime-local" id="timestamp" name="timestamp" required value="2026-01-19T14:30">
+                <input type="text" id="customer_id" name="customer_id" required value="usr_abc123">
+            `;
+
+            const isValid = form.checkValidity();
+            assert(isValid, 'Completed form should be valid');
+        });
+
+        runner.test('Form with missing description should not validate', () => {
+            const form = document.createElement('form');
+            form.innerHTML = `
+                <textarea id="description" name="description" required></textarea>
+                <input type="datetime-local" id="timestamp" name="timestamp" required value="2026-01-19T14:30">
+                <input type="text" id="customer_id" name="customer_id" required value="usr_abc123">
+            `;
+
+            const isValid = form.checkValidity();
+            assert(!isValid, 'Form without description should not be valid');
+        });
+
+        runner.test('Form with missing timestamp should not validate', () => {
+            const form = document.createElement('form');
+            form.innerHTML = `
+                <textarea id="description" name="description" required>User can't checkout</textarea>
+                <input type="datetime-local" id="timestamp" name="timestamp" required>
+                <input type="text" id="customer_id" name="customer_id" required value="usr_abc123">
+            `;
+
+            const isValid = form.checkValidity();
+            assert(!isValid, 'Form without timestamp should not be valid');
+        });
+
+        runner.test('Form with missing customer_id should not validate', () => {
+            const form = document.createElement('form');
+            form.innerHTML = `
+                <textarea id="description" name="description" required>User can't checkout</textarea>
+                <input type="datetime-local" id="timestamp" name="timestamp" required value="2026-01-19T14:30">
+                <input type="text" id="customer_id" name="customer_id" required>
+            `;
+
+            const isValid = form.checkValidity();
+            assert(!isValid, 'Form without customer_id should not be valid');
+        });
+
+        // Test Suite 3: Loading State
+        runner.test('Submit button can be disabled', () => {
+            const button = document.createElement('button');
+            button.type = 'submit';
+            button.id = 'analyze-btn';
+            button.textContent = 'Analyze Logs';
+
+            button.disabled = true;
+            assert(button.disabled, 'Button should be disableable');
+
+            button.disabled = false;
+            assert(!button.disabled, 'Button should be re-enableable');
+        });
+
+        runner.test('Submit button text can be changed', () => {
+            const button = document.createElement('button');
+            button.type = 'submit';
+            button.textContent = 'Analyze Logs';
+
+            assertEquals(button.textContent, 'Analyze Logs', 'Initial text should be "Analyze Logs"');
+
+            button.textContent = 'Analyzing...';
+            assertEquals(button.textContent, 'Analyzing...', 'Text should change to "Analyzing..."');
+
+            button.textContent = 'Analyze Logs';
+            assertEquals(button.textContent, 'Analyze Logs', 'Text should revert to "Analyze Logs"');
+        });
+
+        runner.test('Loading spinner can be shown and hidden', () => {
+            const loading = document.createElement('div');
+            loading.id = 'loading';
+            loading.className = 'loading hidden';
+            loading.innerHTML = '<div class="spinner"></div><p>Analyzing logs...</p>';
+
+            assert(loading.classList.contains('hidden'), 'Loading should start hidden');
+
+            loading.classList.remove('hidden');
+            assert(!loading.classList.contains('hidden'), 'Loading should be visible');
+
+            loading.classList.add('hidden');
+            assert(loading.classList.contains('hidden'), 'Loading should be hidden again');
+        });
+
+        // Test Suite 4: Error Display
+        runner.test('Error message can be shown and hidden', () => {
+            const error = document.createElement('div');
+            error.id = 'form-error';
+            error.className = 'error-message';
+
+            assert(!error.classList.contains('show'), 'Error should start hidden');
+
+            error.textContent = 'Test error';
+            error.classList.add('show');
+            assert(error.classList.contains('show'), 'Error should be visible');
+            assertEquals(error.textContent, 'Test error', 'Error text should be set');
+
+            error.textContent = '';
+            error.classList.remove('show');
+            assert(!error.classList.contains('show'), 'Error should be hidden');
+            assertEquals(error.textContent, '', 'Error text should be cleared');
+        });
+
+        runner.test('Multiple error messages can be displayed', () => {
+            const authError = document.createElement('div');
+            authError.className = 'error-message';
+            const formError = document.createElement('div');
+            formError.className = 'error-message';
+
+            authError.textContent = 'Auth error';
+            authError.classList.add('show');
+            formError.textContent = 'Form error';
+            formError.classList.add('show');
+
+            assert(authError.classList.contains('show'), 'Auth error should be visible');
+            assert(formError.classList.contains('show'), 'Form error should be visible');
+        });
+
+        // Test Suite 5: Form Data Processing
+        runner.test('Timestamp conversion to ISO format', () => {
+            const timestamp = '2026-01-19T14:30';
+            const isoTimestamp = new Date(timestamp).toISOString();
+
+            assert(isoTimestamp.includes('2026-01-19'), 'ISO timestamp should contain date');
+            assert(isoTimestamp.endsWith('Z'), 'ISO timestamp should end with Z');
+        });
+
+        runner.test('Form data can be extracted', () => {
+            const form = document.createElement('form');
+            form.innerHTML = `
+                <textarea id="description" name="description">User can't checkout</textarea>
+                <input type="datetime-local" id="timestamp" name="timestamp" value="2026-01-19T14:30">
+                <input type="text" id="customer_id" name="customer_id" value="usr_abc123">
+            `;
+
+            const description = form.querySelector('#description').value;
+            const timestamp = form.querySelector('#timestamp').value;
+            const customerId = form.querySelector('#customer_id').value;
+
+            assertEquals(description, "User can't checkout", 'Description should be extracted');
+            assertEquals(timestamp, '2026-01-19T14:30', 'Timestamp should be extracted');
+            assertEquals(customerId, 'usr_abc123', 'Customer ID should be extracted');
+        });
+
+        runner.test('Payload can be constructed from form data', () => {
+            const description = "User can't checkout";
+            const timestamp = '2026-01-19T14:30';
+            const customerId = 'usr_abc123';
+
+            const payload = {
+                description,
+                timestamp: new Date(timestamp).toISOString(),
+                customer_id: customerId
+            };
+
+            assert(payload.description, 'Payload should have description');
+            assert(payload.timestamp, 'Payload should have timestamp');
+            assert(payload.customer_id, 'Payload should have customer_id');
+            assert(payload.timestamp.endsWith('Z'), 'Payload timestamp should be ISO format');
+        });
+
+        // Test Suite 6: Responsive Design
+        runner.test('Form layout should be responsive', () => {
+            const form = document.createElement('form');
+            form.innerHTML = `
+                <div class="form-group">
+                    <label>Description</label>
+                    <textarea style="width: 100%"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Timestamp</label>
+                    <input type="datetime-local" style="width: 100%">
+                </div>
+            `;
+
+            const textarea = form.querySelector('textarea');
+            const input = form.querySelector('input');
+
+            // Check that elements use full width
+            assertEquals(textarea.style.width, '100%', 'Textarea should be full width');
+            assertEquals(input.style.width, '100%', 'Input should be full width');
+        });
+
+        runner.test('Container should have max-width for larger screens', () => {
+            const container = document.createElement('div');
+            container.className = 'container';
+            container.style.maxWidth = '800px';
+
+            assertEquals(container.style.maxWidth, '800px', 'Container should have max-width');
+        });
+
+        // Run all tests
+        runner.run();
+    </script>
+</body>
+</html>

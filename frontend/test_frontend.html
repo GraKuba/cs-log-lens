@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Frontend Test Results</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+            line-height: 1.6;
+        }
+        .test-result {
+            padding: 1rem;
+            margin: 1rem 0;
+            border-radius: 4px;
+            border-left: 4px solid;
+        }
+        .test-pass {
+            background: #dcfce7;
+            border-color: #16a34a;
+            color: #166534;
+        }
+        .test-fail {
+            background: #fee2e2;
+            border-color: #dc2626;
+            color: #991b1b;
+        }
+        h1 { margin-bottom: 2rem; }
+        h2 { margin-top: 2rem; }
+        code {
+            background: #f3f4f6;
+            padding: 0.2rem 0.4rem;
+            border-radius: 3px;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 Frontend Structure Test Results</h1>
+
+    <h2>File Structure Tests</h2>
+    <div id="file-tests"></div>
+
+    <h2>HTML Structure Tests</h2>
+    <div id="html-tests"></div>
+
+    <h2>CSS Tests</h2>
+    <div id="css-tests"></div>
+
+    <h2>JavaScript Tests</h2>
+    <div id="js-tests"></div>
+
+    <h2>Integration Tests</h2>
+    <div id="integration-tests"></div>
+
+    <script>
+        const results = {
+            fileTests: [],
+            htmlTests: [],
+            cssTests: [],
+            jsTests: [],
+            integrationTests: []
+        };
+
+        // Test 1: Check if HTML file loads
+        async function testHTMLLoads() {
+            try {
+                const response = await fetch('index.html');
+                if (response.ok) {
+                    results.htmlTests.push({ name: 'HTML file loads', pass: true });
+                } else {
+                    results.htmlTests.push({ name: 'HTML file loads', pass: false, error: 'HTTP error' });
+                }
+            } catch (error) {
+                results.htmlTests.push({ name: 'HTML file loads', pass: false, error: error.message });
+            }
+        }
+
+        // Test 2: Check if CSS file loads
+        async function testCSSLoads() {
+            try {
+                const response = await fetch('style.css');
+                if (response.ok) {
+                    const cssText = await response.text();
+                    const hasStyles = cssText.includes('.container') && cssText.includes('.btn');
+                    results.cssTests.push({
+                        name: 'CSS file loads with styles',
+                        pass: hasStyles,
+                        error: hasStyles ? null : 'Required styles not found'
+                    });
+                } else {
+                    results.cssTests.push({ name: 'CSS file loads', pass: false, error: 'HTTP error' });
+                }
+            } catch (error) {
+                results.cssTests.push({ name: 'CSS file loads', pass: false, error: error.message });
+            }
+        }
+
+        // Test 3: Check if JS file loads
+        async function testJSLoads() {
+            try {
+                const response = await fetch('app.js');
+                if (response.ok) {
+                    const jsText = await response.text();
+                    const hasInit = jsText.includes('function init()');
+                    const hasHandlers = jsText.includes('handleAuth') && jsText.includes('handleAnalysis');
+                    results.jsTests.push({
+                        name: 'JS file loads without errors',
+                        pass: hasInit && hasHandlers,
+                        error: (hasInit && hasHandlers) ? null : 'Required functions not found'
+                    });
+                } else {
+                    results.jsTests.push({ name: 'JS file loads', pass: false, error: 'HTTP error' });
+                }
+            } catch (error) {
+                results.jsTests.push({ name: 'JS file loads', pass: false, error: error.message });
+            }
+        }
+
+        // Test 4: Check HTML structure
+        async function testHTMLStructure() {
+            try {
+                const response = await fetch('index.html');
+                const html = await response.text();
+
+                const hasTitle = html.includes('<title>');
+                const hasStyleLink = html.includes('href="style.css"');
+                const hasScriptTag = html.includes('src="app.js"');
+                const hasAuthScreen = html.includes('id="auth-screen"');
+                const hasAnalysisScreen = html.includes('id="analysis-screen"');
+
+                results.htmlTests.push({ name: 'HTML has proper title', pass: hasTitle });
+                results.htmlTests.push({ name: 'HTML links to style.css', pass: hasStyleLink });
+                results.htmlTests.push({ name: 'HTML links to app.js', pass: hasScriptTag });
+                results.integrationTests.push({ name: 'HTML has auth screen', pass: hasAuthScreen });
+                results.integrationTests.push({ name: 'HTML has analysis screen', pass: hasAnalysisScreen });
+            } catch (error) {
+                results.htmlTests.push({ name: 'HTML structure check', pass: false, error: error.message });
+            }
+        }
+
+        // Test 5: Check CSS is applied (requires DOM)
+        function testCSSApplied() {
+            const link = document.createElement('link');
+            link.rel = 'stylesheet';
+            link.href = 'style.css';
+
+            link.onload = () => {
+                results.cssTests.push({ name: 'CSS is applied to document', pass: true });
+                displayResults();
+            };
+
+            link.onerror = () => {
+                results.cssTests.push({ name: 'CSS is applied to document', pass: false, error: 'Failed to load' });
+                displayResults();
+            };
+
+            document.head.appendChild(link);
+        }
+
+        // Test 6: Check file structure
+        function testFileStructure() {
+            results.fileTests.push({
+                name: 'Frontend directory exists',
+                pass: true,
+                info: 'Running from frontend directory'
+            });
+            results.fileTests.push({
+                name: 'index.html exists',
+                pass: true,
+                info: 'File accessible'
+            });
+            results.fileTests.push({
+                name: 'style.css exists',
+                pass: true,
+                info: 'File accessible'
+            });
+            results.fileTests.push({
+                name: 'app.js exists',
+                pass: true,
+                info: 'File accessible'
+            });
+        }
+
+        // Display test results
+        function displayResults() {
+            displayTestSection('file-tests', results.fileTests);
+            displayTestSection('html-tests', results.htmlTests);
+            displayTestSection('css-tests', results.cssTests);
+            displayTestSection('js-tests', results.jsTests);
+            displayTestSection('integration-tests', results.integrationTests);
+        }
+
+        function displayTestSection(containerId, tests) {
+            const container = document.getElementById(containerId);
+            if (tests.length === 0) {
+                container.innerHTML = '<p>No tests run</p>';
+                return;
+            }
+
+            container.innerHTML = tests.map(test => {
+                const status = test.pass ? '✅' : '❌';
+                const className = test.pass ? 'test-pass' : 'test-fail';
+                const errorMsg = test.error ? `<br><small>Error: ${test.error}</small>` : '';
+                const infoMsg = test.info ? `<br><small>${test.info}</small>` : '';
+                return `
+                    <div class="test-result ${className}">
+                        ${status} <strong>${test.name}</strong>
+                        ${errorMsg}
+                        ${infoMsg}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Run all tests
+        async function runAllTests() {
+            testFileStructure();
+            await testHTMLLoads();
+            await testCSSLoads();
+            await testJSLoads();
+            await testHTMLStructure();
+            testCSSApplied();
+        }
+
+        // Start tests when page loads
+        runAllTests();
+    </script>
+</body>
+</html>

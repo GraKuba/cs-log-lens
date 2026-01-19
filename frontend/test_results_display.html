@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Results Display Tests - LogLens</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .test-container {
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 2rem;
+        }
+
+        .test-header {
+            background: var(--primary-color);
+            color: white;
+            padding: 1.5rem;
+            border-radius: 8px;
+            margin-bottom: 2rem;
+        }
+
+        .test-controls {
+            margin-bottom: 2rem;
+            display: flex;
+            gap: 1rem;
+        }
+
+        .test-output {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 1.5rem;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.875rem;
+            max-height: 400px;
+            overflow-y: auto;
+            margin-bottom: 2rem;
+        }
+
+        .test-output pre {
+            margin: 0;
+            white-space: pre-wrap;
+        }
+
+        .test-results-preview {
+            background: white;
+            border: 2px dashed var(--border-color);
+            border-radius: 8px;
+            padding: 2rem;
+        }
+
+        .test-results-preview h3 {
+            margin-top: 0;
+            color: var(--text-secondary);
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <div class="test-header">
+            <h1>🧪 Results Display Tests</h1>
+            <p>Automated tests for LogLens results display functionality</p>
+        </div>
+
+        <div class="test-controls">
+            <button class="btn btn-primary" onclick="runTests()">Run All Tests</button>
+            <button class="btn btn-primary" onclick="clearConsole()">Clear Console</button>
+        </div>
+
+        <div class="test-output">
+            <pre id="console-output">Test console output will appear here...</pre>
+        </div>
+
+        <div class="test-results-preview">
+            <h3>Results Display Preview</h3>
+
+            <!-- Mock analysis screen for testing -->
+            <div id="analysis-screen">
+                <div id="form-error" class="error-message"></div>
+                <div id="results" class="results hidden">
+                    <!-- Results will be rendered here during tests -->
+                </div>
+            </div>
+
+            <div id="toast" class="toast hidden">Copied to clipboard!</div>
+        </div>
+    </div>
+
+    <!-- Load the main app.js first (contains functions being tested) -->
+    <script src="app.js"></script>
+
+    <!-- Override console.log to capture output -->
+    <script>
+        const originalConsoleLog = console.log;
+        const originalConsoleError = console.error;
+        const consoleOutput = document.getElementById('console-output');
+
+        function appendToConsole(message, type = 'log') {
+            const timestamp = new Date().toLocaleTimeString();
+            const prefix = type === 'error' ? '❌' : type === 'warn' ? '⚠️' : '📝';
+            consoleOutput.textContent += `[${timestamp}] ${prefix} ${message}\n`;
+            consoleOutput.parentElement.scrollTop = consoleOutput.parentElement.scrollHeight;
+        }
+
+        console.log = function(...args) {
+            originalConsoleLog.apply(console, args);
+            appendToConsole(args.join(' '), 'log');
+        };
+
+        console.error = function(...args) {
+            originalConsoleError.apply(console, args);
+            appendToConsole(args.join(' '), 'error');
+        };
+
+        console.warn = function(...args) {
+            originalConsoleError.apply(console, args);
+            appendToConsole(args.join(' '), 'warn');
+        };
+
+        function clearConsole() {
+            consoleOutput.textContent = 'Console cleared.\n';
+        }
+
+        // Initialize the app state for testing
+        state.authToken = 'test-token';
+        state.isAuthenticated = true;
+    </script>
+
+    <!-- Load the test suite -->
+    <script src="test_results_display.js"></script>
+
+    <script>
+        // Add automatic test runner on page load
+        window.addEventListener('load', () => {
+            console.log('🚀 Page loaded. Ready to run tests.');
+            console.log('Click "Run All Tests" button to start testing.\n');
+        });
+    </script>
+</body>
+</html>
