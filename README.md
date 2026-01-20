@@ -2,25 +2,26 @@
 
 > AI-powered log analysis tool for customer support teams
 
-LogLens helps customer support teams quickly analyze error logs and diagnose customer issues using AI. It integrates with Sentry for log collection and uses GPT-4 to provide probable causes and suggested responses.
+LogLens helps customer support teams quickly analyze error logs and diagnose customer issues using AI. It integrates with Sentry for log collection and uses Google Gemini to provide probable causes and suggested responses.
 
 ## Features
 
-- 🤖 **AI-Powered Analysis**: Uses GPT-4 to analyze logs and provide probable causes
-- 🔍 **Sentry Integration**: Automatically fetches relevant error events from Sentry
-- 💬 **Slack Bot**: Analyze logs directly from Slack with `/loglens` command
+- 🤖 **AI-Powered Analysis**: Uses Google Gemini 2.5 Flash to analyze logs and provide probable causes
+- 🔍 **Sentry Integration**: Automatically fetches relevant error events from Sentry (time-based filtering)
+- 💬 **Slack Bot**: Analyze logs directly from Slack with `/loglens` command (async webhook pattern)
 - 🌐 **Web Interface**: Simple, password-protected web form for log analysis
-- ⚡ **Fast Response**: Get analysis results in under 5 seconds
+- ⚡ **Smart Response**: Immediate acknowledgment, full analysis delivered via webhook (~30 seconds)
 - 📊 **Ranked Causes**: See top 3 probable causes with confidence levels
 - 💡 **Suggested Responses**: Get AI-generated customer responses
+- 🔗 **Sentry Links**: Direct links to related error events in Sentry
 
 ## Quick Start
 
 ### Prerequisites
 
-- Python 3.11+
+- Python 3.13+ (managed with `uv`)
 - Sentry account with API access
-- OpenAI API key
+- Google Gemini API key
 - (Optional) Slack workspace for bot integration
 
 ### Local Development
@@ -167,6 +168,14 @@ Use the `/loglens` command in Slack:
 
 Format: `[description] | [timestamp] | [customer_id]`
 
+**How it works:**
+1. Slack sends command to backend
+2. Backend immediately responds: "🔄 Analyzing logs... This may take up to 30 seconds."
+3. Backend processes request in background (fetches Sentry events + LLM analysis)
+4. Backend posts full analysis back to Slack via webhook (~30 seconds later)
+
+This async pattern ensures Slack doesn't timeout while still providing comprehensive analysis.
+
 ## Architecture
 
 ```
@@ -177,58 +186,64 @@ Format: `[description] | [timestamp] | [customer_id]`
                                │
                                ▼
                         ┌──────────────┐
-                        │   Backend    │
-                        │   (Railway)  │
+                        │   Backend    │◀────── Slack Webhook
+                        │   (Railway)  │        (async response)
                         └──────┬───────┘
                                │
               ┌────────────────┼────────────────┐
               │                │                │
               ▼                ▼                ▼
        ┌──────────┐     ┌──────────┐    ┌──────────┐
-       │  Sentry  │     │  OpenAI  │    │   Slack  │
-       │   API    │     │   GPT-4  │    │   API    │
+       │  Sentry  │     │  Gemini  │    │   Slack  │
+       │   API    │     │ 2.5 Flash│    │   API    │
        └──────────┘     └──────────┘    └──────────┘
 ```
 
 ### Tech Stack
 
-- **Backend**: FastAPI, Python 3.11
+- **Backend**: FastAPI, Python 3.13, `httpx` for async requests
 - **Frontend**: Vanilla JavaScript, HTML, CSS
-- **AI**: OpenAI GPT-4
-- **Logs**: Sentry API
+- **AI**: Google Gemini 2.5 Flash (via `google-genai` SDK)
+- **Logs**: Sentry API (time-based event filtering)
 - **Hosting**: Railway (backend), Cloudflare Pages (frontend)
-- **Chat**: Slack Bolt SDK
+- **Chat**: Slack Bolt SDK with async webhook pattern
+- **Package Management**: `uv` for Python dependencies
 
 ## Project Structure
 
 ```
 cs-log-lens/
 ├── backend/
-│   ├── main.py              # FastAPI app and endpoints
+│   ├── main.py              # FastAPI app with async Slack webhooks
 │   ├── config.py            # Environment configuration
-│   ├── sentry_client.py     # Sentry API integration
-│   ├── analyzer.py          # LLM analysis logic
+│   ├── sentry_client.py     # Sentry API integration (time-based filtering)
+│   ├── analyzer.py          # Gemini LLM analysis logic
 │   ├── slack_bot.py         # Slack bot integration
 │   ├── requirements.txt     # Python dependencies
 │   ├── docs/
 │   │   ├── workflow.md      # CS workflow documentation
 │   │   └── known_errors.md  # Known error patterns
-│   └── test_*.py            # Test files
+│   └── .venv/               # Virtual environment (uv)
 ├── frontend/
 │   ├── index.html           # Main web interface
 │   ├── app.js               # Frontend logic
-│   └── style.css            # Styles
+│   ├── style.css            # Styles
+│   └── config.js            # Frontend configuration
+├── tests/
+│   ├── backend/             # Backend test files
+│   ├── frontend/            # Frontend test files
+│   ├── integration/         # Integration tests
+│   ├── conftest.py          # Pytest configuration
+│   └── README.md            # Testing guide
 ├── docs/
 │   ├── prd.md               # Product requirements
 │   ├── tech-spec.md         # Technical specification
 │   ├── tasks.md             # Task breakdown
-│   └── 2-history/           # Development logs
-├── DEPLOYMENT.md            # Backend deployment guide
-├── FRONTEND_DEPLOYMENT.md   # Frontend deployment guide
-├── DEPLOYMENT_SUMMARY.md    # Deployment quick reference
-├── DEPLOYMENT_CHECKLIST.md  # Backend deployment checklist
-├── CLOUDFLARE_CHECKLIST.md  # Frontend deployment checklist
-├── verify_deployment.sh     # Deployment verification script
+│   ├── 2-history/           # Development logs
+│   └── archived/            # Archived documentation
+├── SLACK_TESTING_GUIDE.md   # Slack integration testing guide
+├── SLACK_TEST_CHECKLIST.md  # Quick testing checklist
+├── RAILWAY_ENV_SETUP.md     # Railway environment setup
 ├── CLAUDE.md                # Development guidelines
 └── README.md                # This file
 ```
@@ -296,9 +311,15 @@ Analyze customer logs.
 
 ### `POST /slack/commands`
 
-Slack slash command handler.
+Slack slash command handler with async webhook pattern.
 
-**Note:** This endpoint is called by Slack and requires signature verification.
+**Flow:**
+1. Validates Slack signature
+2. Immediately returns: `{"text": "🔄 Analyzing logs..."}`
+3. Processes request in background task
+4. Posts result to Slack via `response_url` webhook
+
+**Note:** This endpoint is called by Slack and requires signature verification. The async pattern prevents Slack's 3-second timeout while allowing 20-30 seconds for LLM analysis.
 
 ## Configuration
 
@@ -309,12 +330,15 @@ Slack slash command handler.
 | `SENTRY_AUTH_TOKEN` | Sentry API auth token | Yes |
 | `SENTRY_ORG` | Sentry organization slug | Yes |
 | `SENTRY_PROJECT` | Sentry project slug | Yes |
-| `OPENAI_API_KEY` | OpenAI API key | Yes |
+| `SENTRY_BASE_URL` | Sentry base URL (e.g., https://de.sentry.io) | Yes |
+| `GEMINI_API_KEY` | Google Gemini API key | Yes |
 | `APP_PASSWORD` | Shared password for web access | Yes |
-| `ALLOWED_ORIGINS` | CORS allowed origins (comma-separated) | Yes |
-| `SLACK_BOT_TOKEN` | Slack bot token | No (for Slack) |
-| `SLACK_SIGNING_SECRET` | Slack signing secret | No (for Slack) |
+| `ALLOWED_ORIGINS` | CORS allowed origins | Yes |
+| `SLACK_BOT_TOKEN` | Slack bot token (xoxb-...) | For Slack |
+| `SLACK_SIGNING_SECRET` | Slack signing secret | For Slack |
 | `LOG_LEVEL` | Logging level (DEBUG, INFO, WARNING, ERROR) | No |
+
+**Note:** Railway deployments require setting these in the Railway dashboard, not in `.env` files. See [RAILWAY_ENV_SETUP.md](RAILWAY_ENV_SETUP.md) for details.
 
 ### Knowledge Base
 
@@ -445,11 +469,17 @@ Open the test HTML files in a browser:
 - Check password is sent in `X-Auth-Token` header
 
 **Slack command not responding:**
-- Verify Request URL in Slack app matches Railway URL
-- Check `SLACK_SIGNING_SECRET` is correct
+- Verify Request URL in Slack app matches Railway URL + `/slack/commands`
+- Check `SLACK_SIGNING_SECRET` is correct in Railway environment variables
 - Review Railway logs for errors
+- Ensure environment variables are set in Railway dashboard (not just `.env`)
 
-See [DEPLOYMENT.md](DEPLOYMENT.md) for more troubleshooting tips.
+**Slack command shows "operation_timeout":**
+- This is expected! The async pattern shows "🔄 Analyzing logs..." immediately
+- Full response appears in ~30 seconds via webhook
+- If no response after 30 seconds, check Railway logs for errors
+
+See [SLACK_TESTING_GUIDE.md](SLACK_TESTING_GUIDE.md) and [RAILWAY_ENV_SETUP.md](RAILWAY_ENV_SETUP.md) for more troubleshooting tips.
 
 ## Contributing
 
