@@ -630,6 +630,39 @@ async def analyze(
     )
 
 
+async def _process_slack_command_async(command_text: str, response_url: str):
+    """
+    Process Slack command in the background and post result to response_url.
+
+    This allows us to respond to Slack immediately (avoiding 3-second timeout)
+    while processing the actual request asynchronously.
+    """
+    from slack_bot import handle_slack_command, format_slack_error
+    import httpx
+
+    try:
+        # Process the command (this may take 20-30 seconds)
+        response = await handle_slack_command(command_text)
+
+        # Post the result back to Slack using response_url
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            await client.post(response_url, json=response)
+            logger.info("Successfully posted response to Slack")
+
+    except Exception as e:
+        logger.error(f"Error processing Slack command in background: {e}", exc_info=True)
+        # Post error message to Slack
+        error_response = format_slack_error(
+            "An error occurred while processing your request",
+            "Please try again or contact support if the issue persists"
+        )
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                await client.post(response_url, json=error_response)
+        except Exception as post_error:
+            logger.error(f"Failed to post error to Slack: {post_error}")
+
+
 @app.post("/slack/commands")
 async def slack_commands(request: Request):
     """
@@ -697,18 +730,18 @@ async def slack_commands(request: Request):
     from urllib.parse import parse_qs
     form_data = parse_qs(body.decode('utf-8'))
 
-    # Extract command text
+    # Extract command text and response URL
     command_text = form_data.get('text', [''])[0]
+    response_url = form_data.get('response_url', [''])[0]
 
     logger.info(f"Received Slack command: {command_text}")
 
-    # Handle the command
-    try:
-        response = await handle_slack_command(command_text)
-        return response
-    except Exception as e:
-        logger.error(f"Error handling Slack command: {e}", exc_info=True)
-        return format_slack_error(
-            "An error occurred while processing your request",
-            "Please try again or contact support if the issue persists"
-        )
+    # Immediately return "processing" response to avoid timeout
+    # Process the actual request in the background
+    import asyncio
+    asyncio.create_task(_process_slack_command_async(command_text, response_url))
+
+    return {
+        "response_type": "in_channel",
+        "text": "🔄 Analyzing logs... This may take up to 30 seconds."
+    }
