@@ -64,8 +64,27 @@ def _parse_iso_timestamp(timestamp: str) -> datetime:
     try:
         # Handle both with and without timezone
         if timestamp.endswith('Z'):
-            return datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
-        return datetime.fromisoformat(timestamp)
+            timestamp = timestamp.replace('Z', '+00:00')
+
+        # Python's fromisoformat can be strict about microseconds
+        # Handle timestamps with microseconds (6 digits) by parsing with strptime if needed
+        try:
+            return datetime.fromisoformat(timestamp)
+        except ValueError:
+            # Try parsing with explicit format for timestamps with microseconds
+            # Format: 2026-01-16T19:17:11.883000+00:00 or 2026-01-16 19:17:11.883000+00:00
+            for fmt in [
+                '%Y-%m-%dT%H:%M:%S.%f%z',
+                '%Y-%m-%d %H:%M:%S.%f%z',
+                '%Y-%m-%dT%H:%M:%S%z',
+                '%Y-%m-%d %H:%M:%S%z',
+            ]:
+                try:
+                    return datetime.strptime(timestamp, fmt)
+                except ValueError:
+                    continue
+            raise
+
     except (ValueError, AttributeError) as e:
         raise ValueError(f"Invalid timestamp format: {timestamp}") from e
 

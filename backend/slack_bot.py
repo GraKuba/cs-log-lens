@@ -256,11 +256,10 @@ async def handle_slack_command(command_text: str) -> dict:
     timestamp_str = parsed["timestamp"]
     customer_id = parsed["customer_id"]
 
-    # Parse timestamp and calculate time range (±5 minutes)
+    # Validate timestamp format
     try:
-        timestamp = datetime.fromisoformat(timestamp_str.replace('Z', '+00:00'))
-        start_time = timestamp - timedelta(minutes=5)
-        end_time = timestamp + timedelta(minutes=5)
+        # Just validate the format, don't convert yet
+        datetime.fromisoformat(timestamp_str.replace('Z', '+00:00'))
     except (ValueError, AttributeError) as e:
         logger.error(f"Invalid timestamp format: {timestamp_str}")
         return format_slack_error(
@@ -268,9 +267,9 @@ async def handle_slack_command(command_text: str) -> dict:
             "Use ISO 8601 format, e.g., 2025-01-19T14:30:00Z"
         )
 
-    # Fetch Sentry events
+    # Fetch Sentry events (use timestamp string directly)
     try:
-        events = await fetch_sentry_events(customer_id, start_time, end_time)
+        events = await fetch_sentry_events(customer_id, timestamp_str, time_window_minutes=5)
         formatted_events = format_events_for_llm(events)
 
         # Generate Sentry links from events
