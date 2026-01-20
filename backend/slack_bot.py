@@ -328,9 +328,11 @@ async def handle_slack_command(command_text: str) -> dict:
     try:
         llm_response = await analyze_logs(
             description=description,
+            timestamp=timestamp_str,
+            customer_id=customer_id,
             formatted_events=formatted_events,
             workflow_docs=workflow_docs,
-            known_errors_docs=known_errors_docs
+            known_errors=known_errors_docs
         )
     except LLMResponseFormatError as e:
         logger.error(f"LLM returned invalid response format: {e}")
