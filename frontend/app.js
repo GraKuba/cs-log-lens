@@ -26,9 +26,13 @@ const elements = {
     analyzeBtn: null
 };
 
-// Initialize the application
-function init() {
-    // Cache DOM elements
+/**
+ * Initialize the application
+ * Sets up DOM element references, checks authentication state,
+ * and displays the appropriate screen
+ */
+async function init() {
+    // Cache DOM elements for performance
     elements.authScreen = document.getElementById('auth-screen');
     elements.analysisScreen = document.getElementById('analysis-screen');
     elements.authForm = document.getElementById('auth-form');
@@ -39,12 +43,45 @@ function init() {
     elements.loading = document.getElementById('loading');
     elements.analyzeBtn = document.getElementById('analyze-btn');
 
-    // Check for stored auth token
+    // Verify all required elements exist
+    const missingElements = Object.entries(elements)
+        .filter(([key, value]) => !value)
+        .map(([key]) => key);
+
+    if (missingElements.length > 0) {
+        console.error('Missing required DOM elements:', missingElements);
+        return;
+    }
+
+    // Check for stored auth token to restore session
     const storedToken = localStorage.getItem('loglens_auth_token');
     if (storedToken) {
-        state.authToken = storedToken;
-        state.isAuthenticated = true;
-        showAnalysisScreen();
+        // Validate stored token with backend
+        try {
+            const response = await fetch(`${API_URL}/auth/verify`, {
+                method: 'GET',
+                headers: {
+                    'X-Auth-Token': storedToken
+                }
+            });
+
+            if (response.ok) {
+                // Token is still valid
+                state.authToken = storedToken;
+                state.isAuthenticated = true;
+                showAnalysisScreen();
+            } else {
+                // Token is invalid, clear it and show auth screen
+                localStorage.removeItem('loglens_auth_token');
+                showAuthScreen();
+            }
+        } catch (error) {
+            // Network error, assume token might be valid and let user try
+            console.warn('Could not validate stored token:', error);
+            state.authToken = storedToken;
+            state.isAuthenticated = true;
+            showAnalysisScreen();
+        }
     } else {
         showAuthScreen();
     }
@@ -53,46 +90,94 @@ function init() {
     setupEventListeners();
 }
 
-// Setup event listeners
+/**
+ * Setup event listeners for forms
+ * Attaches submit handlers to authentication and analysis forms
+ */
 function setupEventListeners() {
     elements.authForm.addEventListener('submit', handleAuth);
     elements.analysisForm.addEventListener('submit', handleAnalysis);
 }
 
-// Show authentication screen
+/**
+ * Show authentication screen and hide analysis screen
+ */
 function showAuthScreen() {
     elements.authScreen.classList.remove('hidden');
     elements.analysisScreen.classList.add('hidden');
 }
 
-// Show analysis screen
+/**
+ * Show analysis screen and hide authentication screen
+ */
 function showAnalysisScreen() {
     elements.authScreen.classList.add('hidden');
     elements.analysisScreen.classList.remove('hidden');
 }
 
-// Handle authentication
+/**
+ * Handle authentication form submission
+ * Validates the password with the backend before granting access
+ */
 async function handleAuth(event) {
     event.preventDefault();
 
     const password = document.getElementById('password').value;
-
-    // Store the password as auth token
-    state.authToken = password;
-    localStorage.setItem('loglens_auth_token', password);
+    const submitBtn = event.target.querySelector('button[type="submit"]');
+    const originalBtnText = submitBtn.textContent;
 
     // Clear any previous errors
     hideError(elements.authError);
 
-    // Show analysis screen
-    state.isAuthenticated = true;
-    showAnalysisScreen();
+    // Show loading state on button
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Verifying...';
+
+    try {
+        // Validate password by calling the auth verification endpoint
+        const response = await fetch(`${API_URL}/auth/verify`, {
+            method: 'GET',
+            headers: {
+                'X-Auth-Token': password
+            }
+        });
+
+        if (response.status === 401) {
+            // Invalid password
+            showError(elements.authError, 'Invalid password. Please try again.');
+            return;
+        }
+
+        if (!response.ok) {
+            // Other error
+            showError(elements.authError, 'Unable to connect to server. Please try again.');
+            return;
+        }
+
+        // Password is valid - store and proceed
+        state.authToken = password;
+        localStorage.setItem('loglens_auth_token', password);
+        state.isAuthenticated = true;
+        showAnalysisScreen();
+
+    } catch (error) {
+        console.error('Auth error:', error);
+        showError(elements.authError, 'Network error. Please check your connection and try again.');
+    } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = originalBtnText;
+    }
 }
 
-// Handle analysis form submission
+/**
+ * Handle analysis form submission
+ * Sends analysis request to backend API and displays results
+ * @param {Event} event - Form submit event
+ */
 async function handleAnalysis(event) {
     event.preventDefault();
 
+    // Prevent duplicate submissions
     if (state.isLoading) return;
 
     // Get form data
@@ -166,7 +251,11 @@ function handleAuthFailure() {
     setLoadingState(false);
 }
 
-// Set loading state
+/**
+ * Set loading state for the application
+ * Shows/hides spinner and disables/enables the analyze button
+ * @param {boolean} isLoading - Whether the app is in loading state
+ */
 function setLoadingState(isLoading) {
     state.isLoading = isLoading;
 
@@ -181,7 +270,11 @@ function setLoadingState(isLoading) {
     }
 }
 
-// Display analysis results
+/**
+ * Display analysis results from the API
+ * Handles both successful analyses and error states
+ * @param {Object} data - Response data from the API
+ */
 function displayResults(data) {
     if (!data.success) {
         // Handle error response with suggestion

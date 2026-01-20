@@ -1,0 +1,41 @@
+{
+  "name": "loglens-frontend",
+  "description": "LogLens - AI-powered log analysis tool for CS teams",
+  "productionBranch": "main",
+  "buildConfig": {
+    "buildCommand": null,
+    "buildOutputDirectory": "/",
+    "rootDirectory": "frontend"
+  },
+  "deploymentTrigger": {
+    "type": "github",
+    "repository": "cs-log-lens"
+  },
+  "environmentVariables": {
+    "production": {
+      "API_URL": {
+        "type": "plain_text",
+        "value": "https://your-railway-app.railway.app",
+        "description": "Backend API URL from Railway deployment"
+      }
+    },
+    "preview": {
+      "API_URL": {
+        "type": "plain_text",
+        "value": "https://your-railway-app.railway.app",
+        "description": "Backend API URL for preview deployments"
+      }
+    }
+  },
+  "routes": [
+    {
+      "pattern": "/*",
+      "action": "serve",
+      "headers": {
+        "X-Frame-Options": "DENY",
+        "X-Content-Type-Options": "nosniff",
+        "Referrer-Policy": "strict-origin-when-cross-origin"
+      }
+    }
+  ]
+}

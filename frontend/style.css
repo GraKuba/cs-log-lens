@@ -670,5 +670,63 @@ footer {
 
     header h1 {
         font-size: 2rem;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .auth-card {
+        padding: 1.5rem;
+    }
+
+    .form-group input,
+    .form-group textarea {
+        font-size: 16px; /* Prevent zoom on iOS */
+    }
+
+    .btn {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .suggested-response h4 {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 1rem;
+    }
+
+    .copy-btn {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .cause-item {
+        padding: 1rem;
+    }
+
+    .toast {
+        bottom: 1rem;
+        right: 1rem;
+        left: 1rem;
+        width: auto;
+    }
+
+    .results h3 {
+        font-size: 1.25rem;
+    }
+
+    .error-state,
+    .empty-state {
+        padding: 2rem 1rem;
+    }
+}
+
+/* Tablet optimization */
+@media (min-width: 641px) and (max-width: 1024px) {
+    .container {
+        max-width: 90%;
+    }
+
+    header h1 {
+        font-size: 2.25rem;
     }
 }

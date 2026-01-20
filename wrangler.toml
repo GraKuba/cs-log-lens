@@ -1,0 +1,17 @@
+# Cloudflare Pages Configuration
+# This file is used by Wrangler CLI for Cloudflare Pages configuration
+
+name = "loglens-frontend"
+compatibility_date = "2024-01-01"
+
+# Pages configuration
+pages_build_output_dir = "frontend"
+
+# Environment variables for Pages
+[env.production]
+# API_URL will be set in Cloudflare Pages dashboard
+# Example: API_URL = "https://your-railway-app.railway.app"
+
+[env.preview]
+# Preview environment settings (for PR deployments)
+# Can use the same backend URL or a staging backend

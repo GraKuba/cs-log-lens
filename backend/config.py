@@ -4,11 +4,15 @@ Loads and validates environment variables
 """
 
 import os
+from pathlib import Path
 from typing import Optional
 from dotenv import load_dotenv
 
-# Load environment variables from .env file
-load_dotenv()
+# Load environment variables from .env file in the backend directory
+# Use explicit path to ensure we load the correct .env file
+# override=True to ensure .env values take precedence over shell environment
+env_path = Path(__file__).parent / '.env'
+load_dotenv(dotenv_path=env_path, override=True)
 
 
 class Config:
@@ -19,8 +23,8 @@ class Config:
     sentry_org: str
     sentry_project: str
 
-    # OpenAI Configuration
-    openai_api_key: str
+    # Gemini Configuration
+    gemini_api_key: str
 
     # Slack Configuration
     slack_bot_token: str
@@ -40,7 +44,7 @@ class Config:
         self.sentry_auth_token = os.getenv("SENTRY_AUTH_TOKEN", "")
         self.sentry_org = os.getenv("SENTRY_ORG", "")
         self.sentry_project = os.getenv("SENTRY_PROJECT", "")
-        self.openai_api_key = os.getenv("OPENAI_API_KEY", "")
+        self.gemini_api_key = os.getenv("GEMINI_API_KEY", "")
         self.slack_bot_token = os.getenv("SLACK_BOT_TOKEN", "")
         self.slack_signing_secret = os.getenv("SLACK_SIGNING_SECRET", "")
         self.app_password = os.getenv("APP_PASSWORD", "")
@@ -52,7 +56,7 @@ class Config:
             "SENTRY_AUTH_TOKEN": self.sentry_auth_token,
             "SENTRY_ORG": self.sentry_org,
             "SENTRY_PROJECT": self.sentry_project,
-            "OPENAI_API_KEY": self.openai_api_key,
+            "GEMINI_API_KEY": self.gemini_api_key,
             "SLACK_BOT_TOKEN": self.slack_bot_token,
             "SLACK_SIGNING_SECRET": self.slack_signing_secret,
             "APP_PASSWORD": self.app_password,

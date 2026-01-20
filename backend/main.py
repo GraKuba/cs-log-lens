@@ -419,6 +419,57 @@ async def health_check():
     }
 
 
+@app.get("/debug/config")
+async def debug_config():
+    """
+    Debug endpoint to check config values (remove in production!)
+    """
+    import os
+    return {
+        "app_password_length": len(os.getenv("APP_PASSWORD", "")),
+        "app_password_first_char": os.getenv("APP_PASSWORD", "")[0] if os.getenv("APP_PASSWORD") else None,
+        "app_password_repr": repr(os.getenv("APP_PASSWORD", "")),
+    }
+
+
+@app.get("/debug/auth")
+async def debug_auth(request: Request):
+    """
+    Debug endpoint to check auth header (remove in production!)
+    """
+    import os
+    token = request.headers.get("X-Auth-Token")
+    expected = os.getenv("APP_PASSWORD", "")
+    return {
+        "token_received": repr(token),
+        "token_length": len(token) if token else 0,
+        "expected_password": repr(expected),
+        "expected_length": len(expected),
+        "tokens_match": token == expected,
+    }
+
+
+@app.get("/auth/verify")
+async def verify_authentication(request: Request, _auth: None = Depends(verify_auth)):
+    """
+    Verify authentication token.
+
+    This endpoint validates the X-Auth-Token header against APP_PASSWORD.
+    Returns 200 OK if valid, 401 Unauthorized if invalid.
+
+    Args:
+        request: The FastAPI Request object
+        _auth: Authentication dependency (validates token)
+
+    Returns:
+        Success message if authentication is valid
+    """
+    return {
+        "authenticated": True,
+        "message": "Authentication successful"
+    }
+
+
 @app.post("/analyze", response_model=AnalyzeResponse)
 async def analyze(
     analyze_request: AnalyzeRequest,

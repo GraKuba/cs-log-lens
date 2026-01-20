@@ -1,12 +1,13 @@
 """
 LLM Analyzer
-Analyzes logs using OpenAI GPT-4o to identify probable causes
+Analyzes logs using Google Gemini to identify probable causes
 """
 
 import json
 import logging
 from typing import Dict, Any
-from openai import AsyncOpenAI
+from google import genai
+from google.genai import types
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 from config import get_config
 
@@ -22,7 +23,7 @@ class LLMResponseFormatError(LLMAnalysisError):
     pass
 
 class LLMAPIError(LLMAnalysisError):
-    """Raised when OpenAI API returns an error"""
+    """Raised when Gemini API returns an error"""
     pass
 
 # System prompt as per Tech Spec lines 233-252
@@ -42,7 +43,9 @@ You must return:
 4. Brief summary of relevant log findings
 
 Be specific and actionable. Reference actual error messages from the logs.
-If logs don't clearly indicate the cause, say so and suggest next steps."""
+If logs don't clearly indicate the cause, say so and suggest next steps.
+
+IMPORTANT: You must respond with valid JSON only, no markdown formatting or code blocks."""
 
 
 def _construct_user_prompt(
@@ -81,7 +84,7 @@ def _construct_user_prompt(
 - Timestamp: {timestamp}
 - Customer ID: {customer_id}
 
-Analyze and respond in JSON format:
+Analyze and respond in JSON format (no markdown, just raw JSON):
 {{
   "causes": [{{"rank": 1, "cause": "", "explanation": "", "confidence": ""}}],
   "suggested_response": "",
@@ -145,40 +148,51 @@ def _validate_llm_response(response_data: Dict[str, Any]) -> None:
     wait=wait_exponential(multiplier=1, min=2, max=10),
     reraise=True
 )
-async def _call_openai_api(client: AsyncOpenAI, messages: list) -> str:
+async def _call_gemini_api(client: genai.Client, prompt: str) -> str:
     """
-    Call OpenAI API with retry logic
+    Call Gemini API with retry logic
 
     Args:
-        client: AsyncOpenAI client instance
-        messages: List of message objects for the chat completion
+        client: Gemini client instance
+        prompt: Full prompt to send to Gemini
 
     Returns:
-        Response content from OpenAI
+        Response content from Gemini
 
     Raises:
         LLMAPIError: If API call fails after retries
     """
     try:
-        logger.info("Calling OpenAI API with GPT-4o")
-        response = await client.chat.completions.create(
-            model="gpt-4o",
-            messages=messages,
-            response_format={"type": "json_object"},
-            temperature=0.7,
-            max_tokens=1500
+        logger.info("Calling Gemini API with gemini-2.5-flash")
+
+        # Generate content using Gemini
+        response = await client.aio.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                temperature=0.7,
+                max_output_tokens=8000,
+            )
         )
 
-        content = response.choices[0].message.content
-        if not content:
-            raise LLMAPIError("Empty response from OpenAI API")
+        # Check if response was completed
+        if response.candidates:
+            finish_reason = response.candidates[0].finish_reason
+            logger.info(f"Response finish reason: {finish_reason}")
+            if finish_reason and finish_reason != 'STOP':
+                logger.warning(f"Response may be incomplete. Finish reason: {finish_reason}")
 
-        logger.info("Successfully received response from OpenAI")
+        content = response.text
+        if not content:
+            raise LLMAPIError("Empty response from Gemini API")
+
+        logger.info(f"Successfully received response from Gemini ({len(content)} characters)")
+        logger.debug(f"Full response: {content}")
         return content
 
     except Exception as e:
-        logger.error(f"OpenAI API error: {str(e)}")
-        raise LLMAPIError(f"OpenAI API call failed: {str(e)}") from e
+        logger.error(f"Gemini API error: {str(e)}")
+        raise LLMAPIError(f"Gemini API call failed: {str(e)}") from e
 
 
 async def analyze_logs(
@@ -201,65 +215,55 @@ async def analyze_logs(
         known_errors: Content from known_errors.md
 
     Returns:
-        Dictionary containing analysis results with causes and suggestions
-        Format:
-        {
-            "causes": [
-                {"rank": 1, "cause": "...", "explanation": "...", "confidence": "high/medium/low"}
-            ],
-            "suggested_response": "...",
-            "logs_summary": "..."
-        }
+        Dict containing analysis results with causes, suggested_response, logs_summary
 
     Raises:
-        LLMAnalysisError: If analysis fails
-        LLMResponseFormatError: If LLM response is malformed
-        LLMAPIError: If OpenAI API fails after retries
+        LLMResponseFormatError: If LLM response format is invalid
+        LLMAPIError: If LLM API call fails
+        LLMAnalysisError: For other analysis errors
     """
     config = get_config()
 
+    # Configure Gemini client
+    client = genai.Client(api_key=config.gemini_api_key)
+
+    logger.info(f"Analyzing logs for customer {customer_id}")
+
+    # Construct full prompt (Gemini doesn't have separate system/user messages in the same way)
+    full_prompt = f"{SYSTEM_PROMPT}\n\n{_construct_user_prompt(description, timestamp, customer_id, formatted_events, workflow_docs, known_errors)}"
+
+    # Call Gemini API with retry logic
     try:
-        # Initialize OpenAI client
-        client = AsyncOpenAI(api_key=config.openai_api_key)
-
-        # Construct user prompt
-        user_prompt = _construct_user_prompt(
-            description=description,
-            timestamp=timestamp,
-            customer_id=customer_id,
-            formatted_events=formatted_events,
-            workflow_docs=workflow_docs,
-            known_errors=known_errors
-        )
-
-        logger.info(f"Analyzing logs for customer {customer_id}")
-
-        # Prepare messages
-        messages = [
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": user_prompt}
-        ]
-
-        # Call OpenAI API with retry logic
-        response_content = await _call_openai_api(client, messages)
-
-        # Parse JSON response
-        try:
-            response_data = json.loads(response_content)
-        except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse LLM response as JSON: {e}")
-            raise LLMResponseFormatError(f"Invalid JSON response from LLM: {str(e)}") from e
-
-        # Validate response format
-        _validate_llm_response(response_data)
-
-        logger.info(f"Successfully analyzed logs for customer {customer_id}")
-        return response_data
-
-    except (LLMAPIError, LLMResponseFormatError):
-        # Re-raise our custom exceptions
+        response_content = await _call_gemini_api(client, full_prompt)
+    except LLMAPIError:
+        # Let retry errors bubble up
         raise
 
-    except Exception as e:
-        logger.error(f"Unexpected error during LLM analysis: {str(e)}")
-        raise LLMAnalysisError(f"Analysis failed: {str(e)}") from e
+    # Parse JSON response
+    try:
+        # Clean up response if it has markdown code blocks
+        response_content = response_content.strip()
+        if response_content.startswith("```json"):
+            response_content = response_content[7:]  # Remove ```json
+        if response_content.startswith("```"):
+            response_content = response_content[3:]  # Remove ```
+        if response_content.endswith("```"):
+            response_content = response_content[:-3]  # Remove trailing ```
+        response_content = response_content.strip()
+
+        response_data = json.loads(response_content)
+    except json.JSONDecodeError as e:
+        logger.error(f"Failed to parse LLM response as JSON: {e}")
+        logger.error(f"Response content: {response_content[:500]}")
+        raise LLMResponseFormatError(f"Invalid JSON in LLM response: {str(e)}") from e
+
+    # Validate response structure
+    try:
+        _validate_llm_response(response_data)
+    except LLMResponseFormatError:
+        # Log the invalid response for debugging
+        logger.error(f"Invalid LLM response structure: {json.dumps(response_data, indent=2)}")
+        raise
+
+    logger.info("Successfully analyzed logs and validated response")
+    return response_data

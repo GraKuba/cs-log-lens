@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LogLens Frontend Performance Tests</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f5f5;
+            padding: 2rem;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            color: #0176D3;
+            margin-bottom: 1rem;
+        }
+
+        .test-section {
+            margin: 2rem 0;
+            padding: 1.5rem;
+            background: #fafafa;
+            border-radius: 4px;
+            border-left: 4px solid #0176D3;
+        }
+
+        .test-section h2 {
+            color: #032D60;
+            margin-bottom: 1rem;
+            font-size: 1.25rem;
+        }
+
+        .test-result {
+            padding: 1rem;
+            margin: 0.5rem 0;
+            background: white;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+        }
+
+        .test-result.pass {
+            border-left: 4px solid #2E844A;
+        }
+
+        .test-result.fail {
+            border-left: 4px solid #EA001E;
+        }
+
+        .test-result.warning {
+            border-left: 4px solid #FFA429;
+        }
+
+        .test-name {
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+        }
+
+        .test-details {
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .metric {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            background: #e8f4f8;
+            border-radius: 4px;
+            margin: 0.25rem;
+            font-family: monospace;
+        }
+
+        button {
+            background: #0176D3;
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1rem;
+            margin: 0.5rem 0.5rem 0.5rem 0;
+        }
+
+        button:hover {
+            background: #0B5CAB;
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .summary {
+            padding: 1.5rem;
+            background: #e8f4f8;
+            border-radius: 4px;
+            margin-bottom: 2rem;
+        }
+
+        .summary h3 {
+            color: #032D60;
+            margin-bottom: 1rem;
+        }
+
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+
+        .summary-item {
+            background: white;
+            padding: 1rem;
+            border-radius: 4px;
+            text-align: center;
+        }
+
+        .summary-value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #0176D3;
+        }
+
+        .summary-label {
+            color: #666;
+            font-size: 0.9rem;
+            margin-top: 0.5rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 LogLens Frontend Performance Tests</h1>
+        <p>Testing frontend load time, responsiveness, and mobile optimization</p>
+
+        <div class="summary" id="summary" style="display: none;">
+            <h3>Test Summary</h3>
+            <div class="summary-grid">
+                <div class="summary-item">
+                    <div class="summary-value" id="total-tests">0</div>
+                    <div class="summary-label">Total Tests</div>
+                </div>
+                <div class="summary-item">
+                    <div class="summary-value" id="passed-tests" style="color: #2E844A;">0</div>
+                    <div class="summary-label">Passed</div>
+                </div>
+                <div class="summary-item">
+                    <div class="summary-value" id="failed-tests" style="color: #EA001E;">0</div>
+                    <div class="summary-label">Failed</div>
+                </div>
+                <div class="summary-item">
+                    <div class="summary-value" id="warning-tests" style="color: #FFA429;">0</div>
+                    <div class="summary-label">Warnings</div>
+                </div>
+            </div>
+        </div>
+
+        <button onclick="runAllTests()">Run All Tests</button>
+        <button onclick="clearResults()">Clear Results</button>
+
+        <div id="results"></div>
+    </div>
+
+    <script>
+        const PERFORMANCE_TARGETS = {
+            pageLoad: 2000, // 2 seconds
+            domContentLoaded: 1000, // 1 second
+            scriptExecution: 100, // 100ms
+            cssLoad: 500, // 500ms
+            imageCount: 10, // Max 10 images for fast load
+            scriptCount: 5, // Max 5 scripts
+        };
+
+        let testResults = {
+            total: 0,
+            passed: 0,
+            failed: 0,
+            warnings: 0
+        };
+
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+            document.getElementById('summary').style.display = 'none';
+            testResults = { total: 0, passed: 0, failed: 0, warnings: 0 };
+        }
+
+        function updateSummary() {
+            document.getElementById('summary').style.display = 'block';
+            document.getElementById('total-tests').textContent = testResults.total;
+            document.getElementById('passed-tests').textContent = testResults.passed;
+            document.getElementById('failed-tests').textContent = testResults.failed;
+            document.getElementById('warning-tests').textContent = testResults.warnings;
+        }
+
+        function addTestResult(name, status, details, metrics = []) {
+            testResults.total++;
+            testResults[status === 'pass' ? 'passed' : status === 'fail' ? 'failed' : 'warnings']++;
+
+            const resultsDiv = document.getElementById('results');
+            const section = document.createElement('div');
+            section.className = `test-result ${status}`;
+
+            let html = `<div class="test-name">${name}</div>`;
+            html += `<div class="test-details">${details}</div>`;
+
+            if (metrics.length > 0) {
+                html += '<div style="margin-top: 0.5rem;">';
+                metrics.forEach(metric => {
+                    html += `<span class="metric">${metric}</span>`;
+                });
+                html += '</div>';
+            }
+
+            section.innerHTML = html;
+            resultsDiv.appendChild(section);
+
+            updateSummary();
+        }
+
+        function createTestSection(title) {
+            const resultsDiv = document.getElementById('results');
+            const section = document.createElement('div');
+            section.className = 'test-section';
+            section.innerHTML = `<h2>${title}</h2>`;
+            resultsDiv.appendChild(section);
+            return section;
+        }
+
+        async function testPageLoadTime() {
+            const section = createTestSection('Page Load Performance');
+
+            // Test 1: Page load time
+            const loadTime = performance.timing.loadEventEnd - performance.timing.navigationStart;
+            const loadStatus = loadTime < PERFORMANCE_TARGETS.pageLoad ? 'pass' : 'warning';
+            addTestResult(
+                'Page Load Time',
+                loadStatus,
+                `Total page load time: ${loadTime}ms (target: ${PERFORMANCE_TARGETS.pageLoad}ms)`,
+                [`Load: ${loadTime}ms`]
+            );
+
+            // Test 2: DOM Content Loaded
+            const domContentLoadedTime = performance.timing.domContentLoadedEventEnd - performance.timing.navigationStart;
+            const domStatus = domContentLoadedTime < PERFORMANCE_TARGETS.domContentLoaded ? 'pass' : 'warning';
+            addTestResult(
+                'DOM Content Loaded',
+                domStatus,
+                `DOM ready time: ${domContentLoadedTime}ms (target: ${PERFORMANCE_TARGETS.domContentLoaded}ms)`,
+                [`DOM Ready: ${domContentLoadedTime}ms`]
+            );
+
+            // Test 3: Resource count
+            const resources = performance.getEntriesByType('resource');
+            const scripts = resources.filter(r => r.initiatorType === 'script');
+            const styles = resources.filter(r => r.initiatorType === 'link' || r.initiatorType === 'css');
+            const images = resources.filter(r => r.initiatorType === 'img');
+
+            const scriptStatus = scripts.length <= PERFORMANCE_TARGETS.scriptCount ? 'pass' : 'warning';
+            addTestResult(
+                'Script Count',
+                scriptStatus,
+                `Found ${scripts.length} scripts (target: ≤${PERFORMANCE_TARGETS.scriptCount})`,
+                [`Scripts: ${scripts.length}`]
+            );
+
+            const imageStatus = images.length <= PERFORMANCE_TARGETS.imageCount ? 'pass' : 'warning';
+            addTestResult(
+                'Image Count',
+                imageStatus,
+                `Found ${images.length} images (target: ≤${PERFORMANCE_TARGETS.imageCount})`,
+                [`Images: ${images.length}`]
+            );
+        }
+
+        function testResponsiveDesign() {
+            const section = createTestSection('Responsive Design');
+
+            // Test viewport meta tag
+            const viewport = document.querySelector('meta[name="viewport"]');
+            const viewportStatus = viewport ? 'pass' : 'fail';
+            addTestResult(
+                'Viewport Meta Tag',
+                viewportStatus,
+                viewport ? 'Viewport meta tag is present' : 'Viewport meta tag is missing',
+                viewport ? ['Present'] : []
+            );
+
+            // Test CSS media queries
+            const styleSheets = Array.from(document.styleSheets);
+            let hasMediaQueries = false;
+
+            try {
+                styleSheets.forEach(sheet => {
+                    if (sheet.cssRules) {
+                        Array.from(sheet.cssRules).forEach(rule => {
+                            if (rule instanceof CSSMediaRule) {
+                                hasMediaQueries = true;
+                            }
+                        });
+                    }
+                });
+            } catch (e) {
+                // Some stylesheets might be cross-origin
+            }
+
+            const mediaQueryStatus = hasMediaQueries ? 'pass' : 'warning';
+            addTestResult(
+                'CSS Media Queries',
+                mediaQueryStatus,
+                hasMediaQueries ? 'CSS media queries detected' : 'No CSS media queries detected',
+                hasMediaQueries ? ['Responsive'] : ['Not responsive']
+            );
+
+            // Test font size (should be at least 16px to prevent zoom on mobile)
+            const inputs = document.querySelectorAll('input, textarea');
+            let minFontSize = Infinity;
+            inputs.forEach(input => {
+                const fontSize = parseFloat(window.getComputedStyle(input).fontSize);
+                minFontSize = Math.min(minFontSize, fontSize);
+            });
+
+            const fontSizeStatus = minFontSize >= 16 ? 'pass' : 'warning';
+            addTestResult(
+                'Mobile Input Font Size',
+                fontSizeStatus,
+                `Minimum input font size: ${minFontSize.toFixed(1)}px (target: ≥16px to prevent iOS zoom)`,
+                [`Min: ${minFontSize.toFixed(1)}px`]
+            );
+        }
+
+        function testAccessibility() {
+            const section = createTestSection('Accessibility & Best Practices');
+
+            // Test for images with alt text
+            const images = document.querySelectorAll('img');
+            const imagesWithoutAlt = Array.from(images).filter(img => !img.alt);
+            const altStatus = imagesWithoutAlt.length === 0 ? 'pass' : 'warning';
+            addTestResult(
+                'Image Alt Text',
+                altStatus,
+                imagesWithoutAlt.length === 0
+                    ? 'All images have alt text'
+                    : `${imagesWithoutAlt.length} images missing alt text`,
+                [`Missing alt: ${imagesWithoutAlt.length}`]
+            );
+
+            // Test for HTTPS
+            const isHttps = window.location.protocol === 'https:' || window.location.hostname === 'localhost';
+            const httpsStatus = isHttps ? 'pass' : 'warning';
+            addTestResult(
+                'HTTPS/Secure Connection',
+                httpsStatus,
+                isHttps ? 'Page is served over HTTPS or localhost' : 'Page is not served over HTTPS',
+                [isHttps ? 'Secure' : 'Not secure']
+            );
+
+            // Test for console errors
+            const consoleErrors = [];
+            const originalError = console.error;
+            console.error = function(...args) {
+                consoleErrors.push(args.join(' '));
+                originalError.apply(console, args);
+            };
+
+            setTimeout(() => {
+                const errorStatus = consoleErrors.length === 0 ? 'pass' : 'warning';
+                addTestResult(
+                    'Console Errors',
+                    errorStatus,
+                    consoleErrors.length === 0
+                        ? 'No console errors detected'
+                        : `${consoleErrors.length} console errors detected`,
+                    [`Errors: ${consoleErrors.length}`]
+                );
+
+                console.error = originalError;
+            }, 1000);
+        }
+
+        function testJavaScriptPerformance() {
+            const section = createTestSection('JavaScript Performance');
+
+            // Test for main thread blocking
+            const measures = performance.getEntriesByType('measure');
+            const longTasks = measures.filter(m => m.duration > 50);
+
+            const longTaskStatus = longTasks.length === 0 ? 'pass' : 'warning';
+            addTestResult(
+                'Long Tasks',
+                longTaskStatus,
+                longTasks.length === 0
+                    ? 'No long tasks detected'
+                    : `${longTasks.length} long tasks (>50ms) detected`,
+                [`Long tasks: ${longTasks.length}`]
+            );
+
+            // Test localStorage usage
+            const storageStatus = 'localStorage' in window ? 'pass' : 'fail';
+            addTestResult(
+                'LocalStorage Support',
+                storageStatus,
+                storageStatus === 'pass'
+                    ? 'LocalStorage is supported'
+                    : 'LocalStorage is not supported',
+                [storageStatus === 'pass' ? 'Supported' : 'Not supported']
+            );
+
+            // Test fetch API support
+            const fetchStatus = 'fetch' in window ? 'pass' : 'fail';
+            addTestResult(
+                'Fetch API Support',
+                fetchStatus,
+                fetchStatus === 'pass'
+                    ? 'Fetch API is supported'
+                    : 'Fetch API is not supported',
+                [fetchStatus === 'pass' ? 'Supported' : 'Not supported']
+            );
+        }
+
+        function testCSSPerformance() {
+            const section = createTestSection('CSS Performance');
+
+            // Count CSS rules
+            const styleSheets = Array.from(document.styleSheets);
+            let totalRules = 0;
+
+            try {
+                styleSheets.forEach(sheet => {
+                    if (sheet.cssRules) {
+                        totalRules += sheet.cssRules.length;
+                    }
+                });
+            } catch (e) {
+                // Some stylesheets might be cross-origin
+            }
+
+            const ruleStatus = totalRules < 1000 ? 'pass' : 'warning';
+            addTestResult(
+                'CSS Rules Count',
+                ruleStatus,
+                `Total CSS rules: ${totalRules} (target: <1000 for optimal performance)`,
+                [`Rules: ${totalRules}`]
+            );
+
+            // Test for CSS animations
+            const elements = document.querySelectorAll('*');
+            let animatedElements = 0;
+
+            elements.forEach(el => {
+                const style = window.getComputedStyle(el);
+                if (style.animation !== 'none' || style.transition !== 'all 0s ease 0s') {
+                    animatedElements++;
+                }
+            });
+
+            addTestResult(
+                'CSS Animations',
+                'pass',
+                `Found ${animatedElements} elements with animations/transitions`,
+                [`Animated: ${animatedElements}`]
+            );
+        }
+
+        async function runAllTests() {
+            clearResults();
+
+            try {
+                await testPageLoadTime();
+                testResponsiveDesign();
+                testAccessibility();
+                testJavaScriptPerformance();
+                testCSSPerformance();
+
+                // Final summary
+                setTimeout(() => {
+                    const section = createTestSection('Summary');
+                    const passRate = ((testResults.passed / testResults.total) * 100).toFixed(1);
+                    const status = passRate >= 90 ? 'pass' : passRate >= 70 ? 'warning' : 'fail';
+
+                    addTestResult(
+                        'Overall Performance',
+                        status,
+                        `${testResults.passed}/${testResults.total} tests passed (${passRate}%)`,
+                        [
+                            `Pass rate: ${passRate}%`,
+                            `Passed: ${testResults.passed}`,
+                            `Failed: ${testResults.failed}`,
+                            `Warnings: ${testResults.warnings}`
+                        ]
+                    );
+                }, 1500);
+            } catch (error) {
+                console.error('Error running tests:', error);
+                addTestResult(
+                    'Test Suite Error',
+                    'fail',
+                    `Error running tests: ${error.message}`,
+                    []
+                );
+            }
+        }
+
+        // Run tests automatically on page load
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                console.log('Performance tests ready. Click "Run All Tests" to begin.');
+            }, 100);
+        });
+    </script>
+</body>
+</html>

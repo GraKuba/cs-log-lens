@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Auth Test - LogLens</title>
+</head>
+<body>
+    <h1>LogLens Authentication Test</h1>
+    <p>Open console to see test results</p>
+    <script>
+        const API_URL = 'http://localhost:8000';
+        
+        async function runTests() {
+            console.log('=== Testing Authentication ===');
+            
+            // Test 1: Health endpoint (no auth)
+            try {
+                const response = await fetch(`${API_URL}/health`);
+                console.log('✓ Health endpoint works:', await response.json());
+            } catch (e) {
+                console.log('✗ Health endpoint failed:', e.message);
+            }
+            
+            // Test 2: Wrong password
+            try {
+                const response = await fetch(`${API_URL}/auth/verify`, {
+                    headers: { 'X-Auth-Token': 'wrong' }
+                });
+                console.log(response.status === 401 ? '✓ Wrong password rejected' : '✗ Wrong password not rejected');
+            } catch (e) {
+                console.log('✗ Auth test failed:', e.message);
+            }
+        }
+        
+        runTests();
+    </script>
+</body>
+</html>

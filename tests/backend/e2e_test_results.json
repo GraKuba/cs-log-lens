@@ -1,0 +1,25 @@
+{
+  "timestamp": "2026-01-19T23:53:46.158301",
+  "backend_url": "http://127.0.0.1:8000",
+  "total_tests": 2,
+  "passed": 2,
+  "failed": 0,
+  "tests": [
+    {
+      "test_id": "0",
+      "name": "Health Endpoint",
+      "passed": true,
+      "duration": 0.009536027908325195,
+      "details": "Health check passed. Version: 0.1.0",
+      "error": null
+    },
+    {
+      "test_id": "3",
+      "name": "Wrong Password",
+      "passed": true,
+      "duration": 0.0025572776794433594,
+      "details": "Correctly rejected invalid authentication",
+      "error": null
+    }
+  ]
+}

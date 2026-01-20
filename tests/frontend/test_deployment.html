@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LogLens Deployment Test</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 900px;
+            margin: 40px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .header {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-section h3 {
+            margin-top: 0;
+            color: #333;
+        }
+        .status {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+        .status.pending { background: #ffeaa7; color: #d63031; }
+        .status.running { background: #74b9ff; color: #0984e3; }
+        .status.pass { background: #55efc4; color: #00b894; }
+        .status.fail { background: #ff7675; color: #d63031; }
+
+        button {
+            background: #0984e3;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-right: 10px;
+        }
+        button:hover {
+            background: #0770c7;
+        }
+        button:disabled {
+            background: #b2bec3;
+            cursor: not-allowed;
+        }
+        .result {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 13px;
+            white-space: pre-wrap;
+        }
+        .result.success {
+            background: #d1f5e6;
+            color: #00875a;
+        }
+        .result.error {
+            background: #ffe5e5;
+            color: #d63031;
+        }
+        .input-group {
+            margin: 15px 0;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #555;
+            font-weight: 500;
+        }
+        input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .info {
+            background: #e3f2fd;
+            padding: 12px;
+            border-radius: 4px;
+            margin: 15px 0;
+            border-left: 4px solid #2196f3;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🧪 LogLens Deployment Test Suite</h1>
+        <p>This tool helps verify your Cloudflare Pages deployment is working correctly.</p>
+    </div>
+
+    <div class="test-section">
+        <h3>Configuration</h3>
+        <div class="input-group">
+            <label for="frontend-url">Frontend URL (Cloudflare Pages)</label>
+            <input type="text" id="frontend-url" placeholder="https://loglens-frontend.pages.dev">
+        </div>
+        <div class="input-group">
+            <label for="backend-url">Backend URL (Railway)</label>
+            <input type="text" id="backend-url" placeholder="https://your-app.railway.app">
+        </div>
+        <div class="input-group">
+            <label for="auth-password">Auth Password</label>
+            <input type="password" id="auth-password" placeholder="APP_PASSWORD from Railway">
+        </div>
+        <button onclick="saveConfig()">Save Configuration</button>
+        <div id="config-result" class="result" style="display:none;"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>Test 1: Frontend Loads <span id="test1-status" class="status pending">Pending</span></h3>
+        <p>Verify the frontend page loads without errors.</p>
+        <button onclick="runTest1()">Run Test</button>
+        <div id="test1-result" class="result" style="display:none;"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>Test 2: Backend Health Check <span id="test2-status" class="status pending">Pending</span></h3>
+        <p>Verify the backend API is accessible.</p>
+        <button onclick="runTest2()">Run Test</button>
+        <div id="test2-result" class="result" style="display:none;"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>Test 3: CORS Configuration <span id="test3-status" class="status pending">Pending</span></h3>
+        <p>Verify CORS headers allow frontend to call backend.</p>
+        <button onclick="runTest3()">Run Test</button>
+        <div id="test3-result" class="result" style="display:none;"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>Test 4: Authentication <span id="test4-status" class="status pending">Pending</span></h3>
+        <p>Verify authentication works with correct password.</p>
+        <button onclick="runTest4()">Run Test</button>
+        <div id="test4-result" class="result" style="display:none;"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>Test 5: SSL/HTTPS <span id="test5-status" class="status pending">Pending</span></h3>
+        <p>Verify both frontend and backend use HTTPS.</p>
+        <button onclick="runTest5()">Run Test</button>
+        <div id="test5-result" class="result" style="display:none;"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>Run All Tests</h3>
+        <p>Execute all tests in sequence.</p>
+        <button onclick="runAllTests()">Run All Tests</button>
+        <button onclick="resetAllTests()">Reset</button>
+    </div>
+
+    <div class="info">
+        <strong>Note:</strong> This test suite runs in your browser. Make sure to save your configuration first.
+        Some tests may fail if run from localhost due to CORS restrictions.
+    </div>
+
+    <script>
+        let config = {
+            frontendUrl: '',
+            backendUrl: '',
+            password: ''
+        };
+
+        function saveConfig() {
+            config.frontendUrl = document.getElementById('frontend-url').value.trim();
+            config.backendUrl = document.getElementById('backend-url').value.trim();
+            config.password = document.getElementById('auth-password').value;
+
+            if (!config.frontendUrl || !config.backendUrl || !config.password) {
+                showResult('config-result', 'Please fill in all fields', false);
+                return;
+            }
+
+            showResult('config-result', 'Configuration saved ✓', true);
+        }
+
+        function showResult(elementId, message, success) {
+            const element = document.getElementById(elementId);
+            element.textContent = message;
+            element.className = `result ${success ? 'success' : 'error'}`;
+            element.style.display = 'block';
+        }
+
+        function updateStatus(testNum, status) {
+            const element = document.getElementById(`test${testNum}-status`);
+            element.className = `status ${status}`;
+            element.textContent = status.charAt(0).toUpperCase() + status.slice(1);
+        }
+
+        async function runTest1() {
+            updateStatus(1, 'running');
+            try {
+                if (!config.frontendUrl) {
+                    throw new Error('Please configure Frontend URL first');
+                }
+
+                const response = await fetch(config.frontendUrl);
+                const text = await response.text();
+
+                if (response.ok && text.includes('LogLens')) {
+                    showResult('test1-result', '✓ Frontend loads successfully\n✓ Page contains LogLens content', true);
+                    updateStatus(1, 'pass');
+                } else {
+                    throw new Error('Frontend loaded but content may be incorrect');
+                }
+            } catch (error) {
+                showResult('test1-result', `✗ Failed: ${error.message}`, false);
+                updateStatus(1, 'fail');
+            }
+        }
+
+        async function runTest2() {
+            updateStatus(2, 'running');
+            try {
+                if (!config.backendUrl) {
+                    throw new Error('Please configure Backend URL first');
+                }
+
+                const response = await fetch(`${config.backendUrl}/health`);
+                const data = await response.json();
+
+                if (response.ok && data.status === 'healthy') {
+                    showResult('test2-result', `✓ Backend is healthy\n✓ Version: ${data.version}`, true);
+                    updateStatus(2, 'pass');
+                } else {
+                    throw new Error('Backend health check failed');
+                }
+            } catch (error) {
+                showResult('test2-result', `✗ Failed: ${error.message}`, false);
+                updateStatus(2, 'fail');
+            }
+        }
+
+        async function runTest3() {
+            updateStatus(3, 'running');
+            try {
+                if (!config.backendUrl) {
+                    throw new Error('Please configure Backend URL first');
+                }
+
+                const response = await fetch(`${config.backendUrl}/health`, {
+                    method: 'OPTIONS'
+                });
+
+                const corsHeader = response.headers.get('Access-Control-Allow-Origin');
+
+                if (corsHeader) {
+                    showResult('test3-result', `✓ CORS configured\n✓ Allowed origin: ${corsHeader}`, true);
+                    updateStatus(3, 'pass');
+                } else {
+                    throw new Error('CORS headers not found');
+                }
+            } catch (error) {
+                showResult('test3-result', `✗ Failed: ${error.message}`, false);
+                updateStatus(3, 'fail');
+            }
+        }
+
+        async function runTest4() {
+            updateStatus(4, 'running');
+            try {
+                if (!config.backendUrl || !config.password) {
+                    throw new Error('Please configure Backend URL and Password first');
+                }
+
+                const response = await fetch(`${config.backendUrl}/analyze`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Auth-Token': config.password
+                    },
+                    body: JSON.stringify({
+                        description: 'Test',
+                        timestamp: new Date().toISOString(),
+                        customer_id: 'test_123'
+                    })
+                });
+
+                if (response.status === 401) {
+                    throw new Error('Authentication failed - check password');
+                } else if (response.status === 200 || response.status === 422) {
+                    showResult('test4-result', '✓ Authentication successful\n✓ Password accepted', true);
+                    updateStatus(4, 'pass');
+                } else {
+                    throw new Error(`Unexpected status: ${response.status}`);
+                }
+            } catch (error) {
+                showResult('test4-result', `✗ Failed: ${error.message}`, false);
+                updateStatus(4, 'fail');
+            }
+        }
+
+        async function runTest5() {
+            updateStatus(5, 'running');
+            try {
+                if (!config.frontendUrl || !config.backendUrl) {
+                    throw new Error('Please configure URLs first');
+                }
+
+                const frontendHttps = config.frontendUrl.startsWith('https://');
+                const backendHttps = config.backendUrl.startsWith('https://');
+
+                if (frontendHttps && backendHttps) {
+                    showResult('test5-result', '✓ Both URLs use HTTPS\n✓ SSL/TLS encryption enabled', true);
+                    updateStatus(5, 'pass');
+                } else {
+                    const issues = [];
+                    if (!frontendHttps) issues.push('Frontend not using HTTPS');
+                    if (!backendHttps) issues.push('Backend not using HTTPS');
+                    throw new Error(issues.join(', '));
+                }
+            } catch (error) {
+                showResult('test5-result', `✗ Failed: ${error.message}`, false);
+                updateStatus(5, 'fail');
+            }
+        }
+
+        async function runAllTests() {
+            await runTest1();
+            await new Promise(r => setTimeout(r, 500));
+            await runTest2();
+            await new Promise(r => setTimeout(r, 500));
+            await runTest3();
+            await new Promise(r => setTimeout(r, 500));
+            await runTest4();
+            await new Promise(r => setTimeout(r, 500));
+            await runTest5();
+        }
+
+        function resetAllTests() {
+            for (let i = 1; i <= 5; i++) {
+                updateStatus(i, 'pending');
+                document.getElementById(`test${i}-result`).style.display = 'none';
+            }
+        }
+    </script>
+</body>
+</html>

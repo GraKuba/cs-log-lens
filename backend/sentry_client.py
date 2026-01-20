@@ -4,6 +4,7 @@ Fetches error events from Sentry for analysis
 """
 
 import logging
+import os
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 import hashlib
@@ -164,7 +165,7 @@ async def fetch_sentry_events(
     Fetch Sentry events for a specific customer around a given timestamp
 
     Args:
-        customer_id: Customer ID to filter events (will be used in user.id filter)
+        customer_id: Customer ID to filter events (optional, used for logging context only)
         timestamp: ISO timestamp around which to search
         time_window_minutes: Time window in minutes (±N minutes from timestamp)
 
@@ -190,17 +191,18 @@ async def fetch_sentry_events(
     start_time = center_time - timedelta(minutes=time_window_minutes)
     end_time = center_time + timedelta(minutes=time_window_minutes)
 
-    # Build Sentry API URL
-    url = f"https://sentry.io/api/0/projects/{config.sentry_org}/{config.sentry_project}/events/"
+    # Build Sentry API URL (support different regions)
+    # Check if we need to use a different region (e.g., de.sentry.io)
+    sentry_base_url = os.getenv("SENTRY_BASE_URL", "https://sentry.io")
+    url = f"{sentry_base_url}/api/0/projects/{config.sentry_org}/{config.sentry_project}/events/"
 
     # Build headers
     headers = {
         "Authorization": f"Bearer {config.sentry_auth_token}",
     }
 
-    # Build query parameters
+    # Build query parameters - fetch all events in time range
     params = {
-        "query": f"user.id:{customer_id}",
         "start": _format_datetime_for_sentry(start_time),
         "end": _format_datetime_for_sentry(end_time),
         "full": "true",
@@ -302,8 +304,8 @@ async def _cached_fetch_events(
         "Authorization": f"Bearer {config.sentry_auth_token}",
     }
 
+    # Build query parameters - fetch all events in time range
     params = {
-        "query": f"user.id:{customer_id}",
         "start": _format_datetime_for_sentry(start_time),
         "end": _format_datetime_for_sentry(end_time),
         "full": "true",
@@ -344,7 +346,8 @@ def generate_sentry_link(event_id: str, org: Optional[str] = None, project: Opti
     config = get_config()
     org_slug = org or config.sentry_org
     project_slug = project or config.sentry_project
-    return f"https://sentry.io/organizations/{org_slug}/issues/?project={project_slug}&query={event_id}"
+    sentry_base_url = os.getenv("SENTRY_BASE_URL", "https://sentry.io")
+    return f"{sentry_base_url}/organizations/{org_slug}/issues/?project={project_slug}&query={event_id}"
 
 
 def format_events_for_llm(events: List[Dict[str, Any]]) -> str:
